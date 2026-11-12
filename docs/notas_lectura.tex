@@ -1,0 +1,665 @@
+
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Idioma y codificación ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noquoting]{babel}
+\usepackage{lmodern}
+
+% ---------- Formato ----------
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+
+\setlist{itemsep=2pt, topsep=4pt}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+% Comando para la ficha de cada paper
+\newcommand{\ficha}[5]{%
+  \begin{itemize}[leftmargin=*, label={}]
+    \item \textbf{Título original:} \textit{#1}
+    \item \textbf{Autores:} #2
+    \item \textbf{En una frase:} #5
+  \end{itemize}
+}
+
+\title{Notas de lectura\\[4pt]
+  \large Proyecto 4: Estudio comparativo de herramientas Text2SQL}
+\author{Alicia Montserrat Valenti Ruiz}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\part{Resúmenes de los artículos}
+% ============================================================
+
+% ------------------------------------------------------------
+\section{Less Is More: Schema Pruning for Cost-Efficient LLM-Based Text-to-SQL (PruneSQL)}
+% ------------------------------------------------------------
+\ficha
+  {Less Is More: Schema Pruning for Cost-Efficient LLM-Based Text-to-SQL}
+  {Ahmed Bahaa ElSaeed Ahmed Nasr (supervisora: Dra.\ Noha Amer)}
+  {German University in Cairo}
+  {Tesis de maestría en Informática Empresarial, 2026}
+  {Propone \textbf{PruneSQL}, un sistema multiagente que reduce el esquema de la base de datos antes de enviarlo al LLM, para gastar menos tokens sin perder precisión.}
+
+\subsection*{Resumen}
+Para que un LLM genere SQL correcto hay que darle el esquema de la base de datos dentro del \textit{prompt}. En bases de datos grandes esto vuelve el \textit{prompt} enorme: más tokens, más costo, más latencia y más confusión para el modelo. Pero si se recorta demasiado el esquema, puede faltar una tabla necesaria. A esto se le llama el \textbf{\textit{trade-off} costo--precisión}.
+
+La tesis propone \textbf{PruneSQL}, con tres agentes en cadena:
+\begin{enumerate}
+  \item \textbf{Selector de esquema:} elige las tablas y luego las columnas relevantes para la pregunta (poda de esquema).
+  \item \textbf{Generador de SQL:} con ejemplos parecidos (\textit{few-shot}) genera varias consultas candidatas a distintas temperaturas.
+  \item \textbf{Selector final:} ejecuta las candidatas y elige la que más coincide en resultados (votación por mayoría).
+\end{enumerate}
+
+\textbf{Resultados} (Spider, GPT-3.5-Turbo):
+\begin{itemize}
+  \item 80.9\% de precisión de ejecución, comparable a otros métodos.
+  \item Unos 5{,}619 tokens por consulta y unos \$3 para evaluar 1{,}034 preguntas (DIN-SQL con GPT-4 cuesta más de \$300).
+  \item 91.9\% en consultas fáciles y 59.6\% en extra difíciles.
+\end{itemize}
+
+\textbf{Limitaciones:} solo usó un modelo (GPT-3.5) y un dataset (Spider), no BIRD.
+
+% ------------------------------------------------------------
+\section{AptMQL-Bench: From Text-to-SQL to Text-to-MQL via Access-Pattern Schema Design and Data-Preserving Migration}
+% ------------------------------------------------------------
+\ficha
+  {AptMQL-Bench: From Text-to-SQL to Text-to-MQL via Access-Pattern Schema Design and Data-Preserving Migration}
+  {Hy Nguyen, Nabi Rezvani, Robin Vujanic}
+  {University of Sydney y MongoDB Research}
+  {arXiv:2610.02770 (preprint), octubre 2026}
+  {Convierte el benchmark BIRD de SQL a MongoDB (MQL) diseñando bien el esquema documental, sin perder datos, y evalúa qué tan bien lo hacen los LLM.}
+
+\subsection*{Resumen}
+\textbf{Text-to-MQL} es lo mismo que Text-to-SQL, pero el resultado es una consulta de MongoDB. Para medir avances se necesitan benchmarks, y lo práctico es convertir uno de SQL que ya existe. Las conversiones previas son mecánicas:
+\begin{itemize}
+  \item \textbf{One-to-One} (DocSpider): cada tabla se vuelve una colección. No pierde datos, pero las consultas son lentísimas.
+  \item \textbf{FK-Embedding} (TEND-v2): embebe las tablas siguiendo las claves foráneas. Falló en 6 de 21 bases de datos y perdió hasta el 25.9\% de las filas sin avisar.
+\end{itemize}
+
+Los autores proponen diseñar el esquema según los \textbf{patrones de acceso} (``lo que se consulta junto, se guarda junto''), usando agentes de programación (Claude Code) con revisión humana en tres etapas: diseño del esquema, migración con validación y traducción de SQL a MQL.
+
+\textbf{El benchmark resultante:} 21 bases de datos, 3{,}186 preguntas, 0\% de pérdida de datos y consultas hasta unas 100 veces más rápidas que One-to-One.
+
+\textbf{Resultados de los LLM:} el mejor modelo (Claude Opus 4.5) solo logra 57.38\% sin conocimiento externo y 70.34\% con él. Las consultas son válidas casi siempre ($\sim$98\%): \textbf{el problema es el significado, no la sintaxis}. Proponen la métrica \textbf{Soft-EX}, que acepta respuestas correctas con campos extra.
+
+% ------------------------------------------------------------
+\section{From Benchmarks to Production: A Text-to-SQL System for Complex Financial Data (FLINT)}
+% ------------------------------------------------------------
+\ficha
+  {From Benchmarks to Production: A Text-to-SQL System for Complex Financial Data}
+  {Arijit Sehanobish, Bruno Gomes Coelho, Guillaume Michel, Sophia Zhi, Valerie Faucon-Morin, Kristen Howell}
+  {Kensho Technologies}
+  {arXiv:2610.03524 (preprint), octubre 2026}
+  {Los sistemas que sacan 80\% en Spider/BIRD caen por debajo del 50\% en bases financieras reales; proponen \textbf{FLINT}, que llega a casi 69\%.}
+
+\subsection*{Resumen}
+En las bases de datos financieras reales los conceptos están guardados como \textbf{IDs opacos}: \texttt{dataItemId = 28} significa ``ingresos totales'' y \texttt{periodTypeId = 1} significa ``anual''. Eso no se puede deducir del esquema, hay que consultar \textbf{tablas de referencia}. Además, una pregunta sencilla requiere unir unas 6 tablas.
+
+Compararon 7 sistemas del estado del arte (CHESS, MAC-SQL, Chase-SQL, FlexSQL, ReFoRCE, DAIL-SQL, DIN-SQL), todos con el mismo LLM (Claude Opus 4.5): \textbf{ninguno superó el 50\%}, aunque el 99\% de sus consultas se ejecutaban sin error. Entre el 64\% y el 96\% de sus errores eran IDs equivocados en los filtros.
+
+\textbf{FLINT} combina: un agente de \textit{lookup} que resuelve los IDs consultando las tablas de referencia, recuperación de ejemplos escritos por expertos, \textit{entity linking}, \textit{schema linking} con tablas puente, generación y una reflexión ante errores.
+
+\textbf{Resultados:} 68.8\% (Financials) y 65.2\% (Transactions), con 10--20 segundos por consulta. Dato importante: un simple \textit{prompt few-shot} con Claude (38--43\%) le ganó a varios sistemas complejos.
+
+\textbf{Conclusión de los autores:} la brecha entre benchmarks y producción no se debe a la capacidad de generar SQL, sino al conocimiento del dominio.
+
+% ------------------------------------------------------------
+\section{FALCON: A Model and Dataset Agnostic Framework for Synthetic Data Generation for NL2SQL Pairs}
+% ------------------------------------------------------------
+\ficha
+  {FALCON: A Model and Dataset Agnostic Framework for Synthetic Data Generation for NL2SQL Pairs}
+  {Darian Lee, Shannon Rumsey, Jack St.\ Clair, Xinyi Tang, Aditya Bansal, Yuanming Shi}
+  {University of California, Santa Cruz y Adobe}
+  {arXiv:2610.03625 (preprint), octubre 2026}
+  {Propone una forma barata de \textbf{generar datos de entrenamiento sintéticos} (pregunta--SQL) tan complejos como BIRD, incluyendo preguntas ambiguas, con modelos pequeños y abiertos.}
+
+\subsection*{Resumen}
+No propone un traductor de preguntas a SQL, sino una forma de \textbf{crear los datos para entrenarlos}. Los benchmarks buenos (como BIRD) están escritos a mano y son caros; los métodos sintéticos existentes usan APIs caras o generan consultas demasiado simples, y ninguno incluye preguntas ambiguas.
+
+\textbf{Cómo funciona FALCON:}
+\begin{enumerate}
+  \item Genera primero el SQL (que se comprueba que se ejecute) y luego 4 preguntas candidatas; un LLM elige la mejor.
+  \item Usa \textbf{personas} (usuarios inventados con objetivos) y \textbf{palabras reservadas} (número de palabras SQL tomado de BIRD) para dar variedad y complejidad.
+  \item Detecta preguntas ambiguas y genera una segunda consulta con la otra interpretación válida.
+  \item Filtra los ejemplos malos con un modelo de alineación y un filtro final con un LLM.
+\end{enumerate}
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item Calidad evaluada por humanos mayor a 0.92, incluso con un modelo de 3B parámetros.
+  \item Datos más complejos que Spider y comparables o superiores a BIRD.
+  \item Los modelos entrenados con FALCON superan a los entrenados con Spider en consultas difíciles, pero fallan en las fáciles; recomiendan mezclar con 5--10\% de datos reales.
+  \item Costo: unos \$20 en GPU propia frente a unos \$326 con una API de pago.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{NL2SQL with Iterative Self-Refinement}
+% ------------------------------------------------------------
+\ficha
+  {NL2SQL with Iterative Self-Refinement}
+  {Anjali Vemula, Akshat Dasula}
+  {University of Minnesota -- Twin Cities}
+  {arXiv:2610.22968 (preprint), octubre 2026}
+  {Propone un sistema multiagente para bases de datos de \textbf{seguros} que genera SQL y lo corrige en un ciclo, revisando tanto la sintaxis como el significado.}
+
+\subsection*{Resumen}
+En el sector de seguros, los datos están en bases relacionales antiguas con muchas tablas relacionadas y métricas propias del negocio (KPIs) como la \textit{tasa de siniestralidad} o la \textit{tasa de conversión de cotizaciones}. Los LLM inventan tablas o columnas, generan SQL inválido o no capturan la intención del usuario, y en este dominio un error puede producir reportes equivocados o problemas regulatorios.
+
+\textbf{Cómo funciona el sistema:}
+\begin{enumerate}
+  \item \textbf{Detección de relevancia:} primero revisa si la pregunta tiene que ver con seguros; si no (p.\ ej., ``¿cuánto cuesta esta alberca?''), se detiene.
+  \item \textbf{Generación de conocimiento:} a partir de un \textbf{diccionario de KPIs} (cada métrica con su fórmula exacta) y un \textbf{diccionario del esquema enriquecido} (descripción, tipo de dato y valores posibles de cada columna), decide tablas, columnas y pasos a seguir.
+  \item \textbf{Generación del SQL.}
+  \item \textbf{Corrección de sintaxis:} ejecuta la consulta en SQLite; si falla, un LLM recibe el error y la corrige.
+  \item \textbf{Corrección lógica:} traduce el SQL de vuelta a lenguaje natural y un LLM juez lo compara con la pregunta original; si no coinciden, lo corrige y repite el ciclo.
+\end{enumerate}
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item Base de datos de seguros \textbf{sintética} con 5 tablas (clientes, pólizas, reclamaciones, agentes y solicitudes).
+  \item 60 preguntas (50 de un dataset de HuggingFace y 10 propias con KPIs): \textbf{$\sim$90\% de aciertos} con Mistral Large.
+  \item 100\% en recuperación de datos simple y $\sim$85\% en analítica y reportes.
+  \item Necesita unas 7 llamadas al LLM por pregunta y tarda unos 20 segundos.
+\end{itemize}
+
+\textbf{Limitaciones:} evaluación muy pequeña (60 preguntas), base de datos sintética y un solo modelo.
+
+% ------------------------------------------------------------
+\section{DualSQL: Text-to-SQL with Multi-Agent Reinforcement Learning}
+% ------------------------------------------------------------
+\ficha
+  {DualSQL: Text-to-SQL with Multi-Agent Reinforcement Learning}
+  {Shijie Chen, Yu Gan, Yeounoh Chung, Jiani Zhang, Quannan Li, Sravan Bodapati, Cody Greer, Yu Su, Fatma Ozcan}
+  {The Ohio State University y Google}
+  {arXiv:2609.18135 (preprint), septiembre 2026}
+  {Entrena \textbf{un solo modelo pequeño} para hacer dos tareas (\textit{schema linking} y generación de SQL) con aprendizaje por refuerzo, y logra resultados de modelos mucho más grandes.}
+
+\subsection*{Resumen}
+Es la referencia [1] del enunciado del proyecto. Los sistemas actuales de Text-to-SQL suelen tener dos etapas: \textbf{\textit{schema linking}} (elegir tablas y columnas) y \textbf{generación de SQL}. Normalmente cada etapa se entrena por separado, aunque ambas necesitan las mismas habilidades: buscar en esquemas complejos y razonar sobre la base de datos.
+
+\textbf{DualSQL} usa \textbf{dos agentes que comparten el mismo modelo} (Qwen3 de 4B y 8B parámetros) y los entrena juntos con \textbf{aprendizaje por refuerzo} (el modelo recibe una ``recompensa'' cuando acierta). Los agentes pueden usar tres herramientas:
+\begin{itemize}
+  \item \textbf{Ejecutor de SQL:} para probar consultas y ver datos reales.
+  \item \textbf{Búsqueda de texto:} para encontrar valores aunque estén escritos de forma distinta o abreviada.
+  \item \textbf{Perfilador de la base de datos:} descripciones de tablas y columnas, estadísticas y claves foráneas que faltan en el esquema.
+\end{itemize}
+
+\textbf{Aportes adicionales:}
+\begin{itemize}
+  \item \textbf{Guardrails} para que el entrenamiento no ``colapse'' (formato roto, bucles infinitos, herramientas mal usadas).
+  \item Una nueva métrica, \textbf{REX} (\textit{Robust Execution Match}), más estricta que la precisión de ejecución tradicional.
+\end{itemize}
+
+\textbf{Resultados} (BIRD-Dev):
+\begin{itemize}
+  \item DualSQL-4B: \textbf{68.0\%}, al nivel de modelos de 7B.
+  \item DualSQL-8B: \textbf{71.1\%}, mejor que modelos de 14B y 32B.
+  \item Entrenado con solo 3{,}755 ejemplos; en el camino corrigieron 384 errores de anotación de BIRD.
+  \item Con el esquema perfecto (\textit{oracle}) subiría hasta 76.5\%: el \textit{schema linking} todavía tiene margen de mejora.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{DexterSQL: Deep Schema Exploration and Rule-based Correction for Text-to-SQL Generation}
+% ------------------------------------------------------------
+\ficha
+  {DexterSQL: Deep Schema Exploration and Rule-based Correction for Text-to-SQL Generation}
+  {Anik Pramanik, Murat Kantarcioglu, Vincent Oria, Shantanu Sharma}
+  {New Jersey Institute of Technology y Virginia Tech}
+  {arXiv:2608.11889 (preprint), septiembre 2026}
+  {Sistema basado solo en \textit{prompts} (sin reentrenar el modelo) que distingue columnas confusas analizando los datos, aprende reglas a partir de errores recurrentes y descompone la pregunta usando su estructura gramatical.}
+
+\subsection*{Resumen}
+Se enfoca en sistemas \textbf{sin \textit{fine-tuning}}, que son fáciles de desplegar y mejoran solos cuando sale un LLM mejor. Identifica tres problemas de estos sistemas y propone un componente para cada uno:
+\begin{enumerate}
+  \item \textbf{Explorador profundo del esquema:} detecta pares de columnas confusas y analiza sus datos para saber cuál usar. Ejemplo: \texttt{Patient.Diagnosis} (diagnóstico final, uno por paciente) frente a \texttt{Examination.Diagnosis} (un diagnóstico por cada examen). Los nombres son iguales; solo los datos revelan la diferencia.
+  \item \textbf{Creador de reglas:} genera SQL para preguntas de entrenamiento, revisa en qué falla, agrupa los errores que se repiten y los convierte en reglas generales. Ejemplo: al calcular una proporción, convertir a decimal para evitar que la división entera dé 0 en lugar de 0.5.
+  \item \textbf{Generación por varios caminos:} usa el \textbf{árbol de dependencias} de la oración para no perder ninguna condición de la pregunta, y lo combina con ejemplos \textit{few-shot} y con dividir la pregunta en subpreguntas.
+\end{enumerate}
+
+\textbf{Resultados} (BIRD-Dev):
+\begin{itemize}
+  \item \textbf{70.4\%} con un modelo abierto (GPT-OSS-120B), 5.5 puntos más que el mejor rival.
+  \item \textbf{72.1\%} con GPT-4o y \textbf{72.9\%} con GPT-5.2.
+  \item 85.6\% en Spider-Test.
+  \item El mejor \textit{schema linking} de los comparados: 97.1\% de \textit{recall} y 72.3\% de precisión.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{QDA-SQL: Questions Enhanced Dialogue Augmentation for Multi-turn Text-to-SQL}
+% ------------------------------------------------------------
+\ficha
+  {QDA-SQL: Questions Enhanced Dialogue Augmentation for Multi-turn Text-to-SQL}
+  {Yinggang Sun, Ziming Guo, Haining Yu, Chuanyi Liu, Xiang Li, Bingxuan Wang, Xiangzhan Yu, Tiancheng Zhao}
+  {Harbin Institute of Technology y Harbin University of Science and Technology}
+  {arXiv:2406.10593v3, julio 2026}
+  {Genera datos de entrenamiento para \textbf{conversaciones de varios turnos}, incluyendo preguntas que \textbf{no se deben responder con SQL} (ambiguas, sin respuesta o fuera de tema).}
+
+\subsection*{Resumen}
+En la vida real los usuarios no hacen una sola pregunta: conversan y hacen preguntas relacionadas entre sí. Además, no todas las preguntas se pueden responder con SQL. El artículo distingue \textbf{cuatro tipos de pregunta}:
+\begin{itemize}
+  \item \textbf{Respondible:} se genera el SQL.
+  \item \textbf{Ambigua:} el sistema debe pedir aclaración. Ejemplo: ``¿Cuál es el id de Glenn?'' --- ``Glenn'' puede ser un donante o una escuela.
+  \item \textbf{Sin respuesta:} el sistema debe explicar por qué no puede responder. Ejemplo: ``¿Todos los donantes son del mismo país?'' cuando la base no guarda el país.
+  \item \textbf{Impropia:} no tiene que ver con la base de datos (p.\ ej., ``¡Gracias!'') y no debe responderse con SQL.
+\end{itemize}
+
+Los sistemas anteriores responden con SQL a todo, aunque no tenga sentido. \textbf{QDA-SQL} usa un LLM para generar conversaciones combinando al azar el tipo de pregunta y cómo se relaciona con la anterior (cambiar una condición, preguntar otra propiedad de la misma entidad, preguntar lo mismo de otra entidad, o profundizar en la respuesta anterior). Luego verifica y mejora las conversaciones, y organiza el proceso como una máquina de estados: \textbf{reconocer intención $\rightarrow$ resolver $\rightarrow$ verificar}.
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item 10{,}874 conversaciones con 65{,}393 turnos generados a partir de SParC y CoSQL.
+  \item Modelos abiertos de 7B entrenados con estos datos superan a GPT-4 Turbo y Gemini 1.5 Pro.
+  \item Entrenar solo con preguntas respondibles mejora el SQL, pero el modelo no aprende a reconocer preguntas ambiguas o sin respuesta.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Benchmarking Text-to-SQL under Role-Based Access Control}
+% ------------------------------------------------------------
+\ficha
+  {Benchmarking Text-to-SQL under Role-Based Access Control}
+  {Yang Fei, Yangfan Jiang, Yin Yang, Xiaokui Xiao}
+  {National University of Singapore y Hamad Bin Khalifa University}
+  {arXiv:2607.22115v2 (preprint), septiembre 2026}
+  {Crea un benchmark para evaluar si los sistemas Text-to-SQL respetan los \textbf{permisos de acceso por rol} (RBAC), algo que los benchmarks actuales ignoran.}
+
+\subsection*{Resumen}
+Los benchmarks (Spider, BIRD, LiveSQLBench) asumen que el usuario puede acceder a toda la base de datos. En empresas reales cada usuario tiene un \textbf{rol con permisos limitados} (\textit{Role-Based Access Control}, RBAC): por ejemplo, un ``analista de ventas'' puede ver la tabla de ventas pero no los datos de los empleados.
+
+El problema que identifican es el \textbf{``éxito rechazado por RBAC''}: una consulta correcta según los benchmarks normales, pero que usa tablas o columnas a las que el usuario no tiene permiso, así que la base de datos la rechaza. La métrica tradicional (EX) no detecta este error.
+
+\textbf{Su propuesta:}
+\begin{itemize}
+  \item Un LLM genera roles realistas y sus permisos para cada base de datos, y humanos los revisan.
+  \item Se aplicó a Spider, BIRD y LiveSQLBench: 53 bases de datos y \textbf{21{,}502 preguntas} con permisos.
+  \item El sistema debe decidir si \textbf{permite o rechaza} la pregunta y, si la permite, generar SQL correcto que respete los permisos.
+  \item Nuevas métricas: \textbf{Safe-EX} (SQL correcto \textit{y} permitido), tasa de violación, tasa de rechazo excesivo y AC-F1.
+\end{itemize}
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item Muchos modelos con buena precisión normal \textbf{fallan mucho bajo permisos}, sobre todo los modelos abiertos (Snowflake-R1-7B viola permisos en el 65\% de los casos en BIRD).
+  \item Los modelos comerciales (GPT-5, Claude Sonnet 4.5) respetan mejor los permisos, pero también los violan a veces.
+  \item Las soluciones simples no bastan: ocultar las columnas no permitidas, \textit{few-shot} y \textit{fine-tuning} tienen efectos limitados o inestables.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Text-to-SQL Models Make Choices Without Saying So (SpecBridge)}
+% ------------------------------------------------------------
+\ficha
+  {Text-to-SQL Models Make Choices Without Saying So}
+  {Yichen Xu, Shipei Lin, Chenhao Ma}
+  {University of California, Berkeley y The Chinese University of Hong Kong, Shenzhen}
+  {arXiv:2611.04318v1 (preprint), noviembre 2026}
+  {Muestra que los modelos Text-to-SQL eligen en silencio cómo calcular un resultado cuando la pregunta deja abierta una decisión de cálculo, y que los benchmarks no pueden detectarlo.}
+
+\subsection*{Resumen}
+Una consulta puede ejecutarse, devolver un número creíble y aun así calcular algo distinto de lo que el analista quería. Pasa cuando la pregunta deja abierta una \textbf{decisión de cálculo} y el modelo la resuelve sin decirlo; los autores lo llaman \textbf{elección silenciosa} (\textit{silent choice}). Ejemplo: ``el precio promedio de renta por día'' puede ser el promedio de los precios diarios de cada película o el precio promedio dividido entre la duración promedio; las dos consultas son simples y dan resultados distintos.
+
+Identifican 13 tipos de elecciones a partir de fallos reales en BIRD y Spider. Los principales:
+\begin{itemize}
+  \item \textbf{Nivel de agregación:} promediar todos los registros o promediar primero por grupo.
+  \item \textbf{Unidad de conteo:} contar filas o entidades distintas (\texttt{COUNT(*)} frente a \texttt{COUNT(DISTINCT)}).
+  \item \textbf{Empates:} devolver exactamente $N$ filas o todas las que empatan con la última.
+  \item \textbf{Valores faltantes:} incluir o excluir los registros con \texttt{NULL}.
+  \item \textbf{Umbral estricto o inclusivo:} ``mayor que'' frente a ``al menos''.
+\end{itemize}
+
+\textbf{Su propuesta:} \textbf{SpecBridge} crea ``conjuntos de peticiones'': tres preguntas idénticas excepto en esa elección (una abierta y una específica para cada interpretación). Así separa tres fallos: no saber calcular, no reportar la elección y avisar de una elección que la pregunta ya resolvía. Usa bases reales de BIRD y Spider sin modificar; quedaron 204 conjuntos validados a mano.
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item Cuatro modelos (Claude Haiku 4.5, Claude Sonnet 5.5, GPT-6 Sol y GPT-6 Luna) casi siempre calculan bien cada interpretación cuando se les pide, pero ante la pregunta abierta solo dan ambas en el 15--58\% de los casos y mencionan la elección en el 38--70\%.
+  \item En el 72--94\% de los casos en que omiten una interpretación, el mismo modelo sí la calcula si se le pide sola: el problema es \textbf{reportar}, no calcular.
+  \item En BIRD, 156 preguntas de desarrollo (una de cada diez) cambian de respuesta según la interpretación. En 79 de ellas, aceptar ambas sube la exactitud de los modelos de 25\% a 57\%.
+  \item Su método \textit{Decide-then-answer} decide primero si la pregunta deja una elección abierta y luego responde cada interpretación por separado. Devuelve todas las interpretaciones entre 29 y 63 puntos más seguido que dar una sola respuesta, sin perder precisión en preguntas claras.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{SQLoom: Set-Contrastive Learning of Syntactic, Semantic, and Logical Dependencies for Text-to-SQL}
+% ------------------------------------------------------------
+\ficha
+  {SQLoom: Set-Contrastive Learning of Syntactic, Semantic, and Logical Dependencies for Text-to-SQL}
+  {Hao Fu, Degang Sun, Wan Wei, Jinxia Wei, Chun Long, Peng Gao}
+  {Virginia Tech y Computer Network Information Center, Chinese Academy of Sciences}
+  {arXiv:2611.03298v1 (preprint), noviembre 2026; WWW '27}
+  {Propone una forma de entrenar (\textit{fine-tuning}) modelos abiertos pequeños para que aprendan las reglas del SQL en vez de solo imitar una consulta de referencia.}
+
+\subsection*{Resumen}
+El \textit{fine-tuning} normal trata al SQL como texto: aprende a copiar una consulta de referencia palabra por palabra. Así, un error pequeño pero decisivo (un alias equivocado, \texttt{>} en lugar de \texttt{>=}) pesa poco en el entrenamiento aunque invalide la consulta. Los autores identifican tres retos:
+\begin{itemize}
+  \item \textbf{Validez sintáctica:} usar solo tablas, columnas y alias que existen.
+  \item \textbf{Alineación semántica:} cada frase de la pregunta debe convertirse en el fragmento SQL correcto (``cursos distintos'' $\rightarrow$ \texttt{COUNT(DISTINCT course\_id)}; ``al menos dos'' $\rightarrow$ \texttt{>= 2}).
+  \item \textbf{Consistencia lógica:} las cláusulas que dependen entre sí deben cambiar juntas (si un JOIN multiplica filas, hay que cambiar \texttt{COUNT(*)} por \texttt{COUNT(DISTINCT)}).
+\end{itemize}
+
+\textbf{Su propuesta:} \textbf{SQLoom} entrena al modelo comparando conjuntos de salidas correctas contra salidas casi iguales pero incorrectas, en esos tres niveles. Un analizador de SQL y la ejecución en bases de contraejemplo verifican qué es correcto. También publican \textbf{Spider-Refined}, que corrige 378 anotaciones erróneas de Spider.
+
+\textbf{Resultados:}
+\begin{itemize}
+  \item Con un modelo de solo 1.7B parámetros (Qwen3-1.7B) sube de 62.9\% a 88.7\% de exactitud en Spider (desarrollo), 89.2\% en Spider (prueba) y 73.4\% en BIRD.
+  \item Supera a métodos con modelos de hasta 70B parámetros y a agentes basados en GPT-4, y es 23 veces más rápido (0.42 s por consulta).
+  \item La diferencia de exactitud entre preguntas fáciles y extra difíciles de Spider baja de 53.7 a 9.6 puntos.
+  \item Ante preguntas reformuladas pierde como máximo 0.6 puntos, frente a hasta 12.1 de los métodos con agentes.
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Post-SQLFix: Property-Guided Repair of LLM-Generated SQL with Runtime Verification}
+% ------------------------------------------------------------
+\ficha
+  {Post-SQLFix: Property-Guided Repair of LLM-Generated SQL with Runtime Verification}
+  {Zhihao Guo, Zonghan Wu, Yilei Shao, Haizhou Du, Nan Tang, Xiao Cheng, Huan Huo}
+  {University of Technology Sydney, East China Normal University, Shanghai University of Electric Power, HKUST (Guangzhou) y Macquarie University}
+  {arXiv:2610.41472v1 (preprint), octubre 2026}
+  {Propone corregir el SQL generado por un LLM con análisis estático y reglas verificables, en lugar de depender solo de los mensajes de error de la base de datos.}
+
+\subsection*{Resumen}
+Los LLM generan consultas con errores de sintaxis, columnas o tablas inexistentes y errores de alcance o de tipos. La forma habitual de corregirlas es la \textbf{retroalimentación de ejecución}: ejecutar la consulta y pasarle al LLM el mensaje de error. Pero esos mensajes son vagos (``error de sintaxis cerca de WHERE''), cambian según el motor y no existen cuando la consulta se ejecuta pero da un resultado incorrecto. Además, el LLM tiende a introducir errores nuevos al corregir.
+
+Los autores lo llaman la \textbf{paradoja del arbitraje}: el mismo modelo, que no está verificado, propone la corrección y decide si es correcta.
+
+\textbf{Su propuesta:} \textbf{Post-SQLFix} es una capa de corrección que se pone después de cualquier sistema Text-to-SQL:
+\begin{itemize}
+  \item Convierte el SQL en una estructura normalizada independiente del dialecto.
+  \item La revisa con un analizador estático en tres capas: sintáctica; estructural (agregaciones, operadores, DISTINCT, ORDER BY); y semántica según el esquema (columnas, tablas, JOINs, funciones, formatos de valores).
+  \item El LLM propone correcciones, pero un monitor solo las acepta si reducen el número de errores y no reintroducen errores ya resueltos.
+  \item Si la consulta es válida pero devuelve un resultado vacío, ajusta los filtros con datos reales de la base.
+\end{itemize}
+
+\textbf{Resultados:} en BIRD, Spider y Mini-Dev (más de 3{,}000 preguntas, tres dialectos: SQLite, MySQL y PostgreSQL), corrige el 77.8\% de los errores que la retroalimentación de ejecución no resuelve, con menos de la mitad de iteraciones y 30\% menos tokens, y mejora la exactitud hasta 11.6 puntos.
+
+
+\newpage
+% ============================================================
+\part{Dificultades identificadas}
+% ============================================================
+
+% ------------------------------------------------------------
+\section{Dificultades: PruneSQL}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Costo de los esquemas grandes.} El esquema va dentro del \textit{prompt}; en bases reales hay cientos de tablas y miles de columnas. Más tokens implica más dinero, más tiempo y riesgo de que no quepa en la ventana de contexto. Con el esquema completo en Spider, GPT-3.5 usa unos 5{,}700 tokens por consulta y GPT-4 unos 9{,}500.
+  \item \textbf{\textit{Trade-off} costo--precisión.} Todo el esquema: gasto alto y ruido. Muy poco: falta una tabla y la consulta sale mal. La literatura casi solo reporta precisión e ignora el costo.
+  \item \textbf{\textit{Schema linking}.} Elegir tablas y columnas es difícil porque hay muchos candidatos parecidos, los nombres varían entre dominios y la pregunta a veces no menciona la columna. Causó el 30.8\% de sus errores.
+  \item \textbf{JOINs y consultas multitabla.} Olvidar el JOIN, unir por la columna equivocada o añadir JOINs innecesarios.
+  \item \textbf{Alucinaciones.} El modelo inventa tablas o columnas, o usa columnas reales pero innecesarias. Empeora con esquemas grandes.
+  \item \textbf{Complejidad de la consulta.} La precisión cae de 91.9\% (fáciles) a 59.6\% (extra difíciles). Lo más difícil: consultas anidadas, operaciones de conjunto (UNION, INTERSECT, EXCEPT), GROUP BY, filtros, ORDER BY y DISTINCT.
+  \item \textbf{Evaluar si la respuesta es correcta.} Una pregunta puede resolverse con varias consultas distintas, por eso se compara el resultado de ejecución y no el texto del SQL.
+  \item \textbf{Esquemas que cambian con el tiempo.} Se añaden, borran o renombran tablas, pero muchos modelos asumen un esquema fijo.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: AptMQL-Bench}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Falta de benchmarks de calidad.} Las conversiones mecánicas pierden datos sin avisar (hasta 25.9\%), fallan por completo en algunas bases (6 de 21) y producen esquemas mal diseñados.
+  \item \textbf{El diseño del esquema afecta el resultado.} Un mal diseño hace que incluso la consulta correcta sea hasta $\sim$100 veces más lenta.
+  \item \textbf{La sintaxis ya no es el problema; el significado sí.} Consultas válidas el 98\% de las veces, pero el mejor modelo acierta solo el 57\% sin ayuda y el 70\% con ayuda.
+  \item \textbf{Falta de conocimiento del dominio.} Las pistas externas (p.\ ej., ``proteína normal = entre 6.0 y 8.5'') suben la precisión entre 12 y 18 puntos.
+  \item \textbf{Entender el contenido de los datos.} Ejemplo: el modelo buscó ``0:01:15'' cuando estaba guardado como ``1:15\ldots''.
+  \item \textbf{Errores de cálculo.} La causa más común de error real (33 de 100): agrupar mal, olvidar DISTINCT, otro denominador o límites equivocados.
+  \item \textbf{Ambigüedad y respuestas ``oficiales'' con errores.} El 37\% de los ``errores'' eran respuestas defendibles. Ejemplo: ``¿cuántos \textit{pacientes}\ldots?'' --- la respuesta oficial contaba análisis de laboratorio y el modelo contaba pacientes.
+  \item \textbf{Métricas demasiado estrictas.} Una respuesta correcta con datos extra se marca como incorrecta; subestima la precisión en unos 20 puntos.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: FLINT}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Brecha entre benchmarks y el mundo real.} Sistemas con 70--85\% en Spider/BIRD no pasan del 50\% en bases reales. Spider y BIRD tienen pocos JOINs (1.2 y 1.8 frente a 5.6), valores legibles (\texttt{country = 'USA'}) y casi ninguna tabla de referencia.
+  \item \textbf{IDs opacos (\textit{value grounding}).} Los conceptos se guardan como números (\texttt{dataItemId = 28}). No se deducen del esquema. Entre el 64\% y el 96\% de los errores fueron IDs equivocados en los filtros.
+  \item \textbf{Consultas que se ejecutan pero dan datos incorrectos.} El 99\% se ejecutaba sin error. No hay señal de fallo, así que la autocorrección no se activa.
+  \item \textbf{Cadenas largas de JOINs y tablas puente.} Preguntas simples requieren 6 JOINs (hasta 13). Ejemplo: Empresa $\rightarrow$ Valor $\rightarrow$ Instrumento $\rightarrow$ Precio.
+  \item \textbf{Convenciones implícitas del dominio.} ``Precio de la acción'' = precio de cierre; ``ingresos'' = anuales; comparar países exige convertir moneda. ``Ingresos de Nvidia'' requiere 6 JOINs y ``de Alibaba'' 10, porque reporta en yuanes.
+  \item \textbf{Ambigüedad de métricas y columnas.} ¿``Precio de la acción'' es el cierre ajustado, el último cierre o la apertura? Fue la principal causa de error de FLINT.
+  \item \textbf{\textit{Entity linking}.} Convertir ``Nvidia'' en su ID entre más de 20 millones de empresas; buscar por nombre no es confiable.
+  \item \textbf{Complicar de más las preguntas fáciles.} FLINT acertó menos en las simples que en las moderadas porque añadía JOINs o conversiones que nadie pidió.
+  \item \textbf{Evaluar correctamente.} Spider rechaza consultas equivalentes escritas distinto; BIRD confunde formato con error. Según SpotIt, hasta el 20\% de la evaluación de BIRD podría estar mal.
+  \item \textbf{Limitaciones prácticas en producción.} Latencia (hasta 40 min por consulta en algunos sistemas), costo de adaptar a un dominio nuevo (1--3 semanas de expertos) y sin conversación (no se puede refinar la pregunta).
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: FALCON}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Escasez de datos de entrenamiento de calidad.} Los benchmarks complejos están escritos a mano: caros, lentos y difíciles de adaptar.
+  \item \textbf{Datos sintéticos demasiado simples y repetitivos.}
+  \item \textbf{Ambigüedad de las preguntas.} Una pregunta es ambigua cuando puede traducirse correctamente a varias consultas SQL distintas. Cuatro tipos:
+
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{@{}l X X@{}}
+    \toprule
+    \textbf{Tipo} & \textbf{Qué pasa} & \textbf{Ejemplo} \\
+    \midrule
+    Alcance (\textit{scope}) & No está claro a qué parte aplica una condición & ``¿Qué actividades ofrece cada gimnasio?'': ¿las comunes a todos o las de cada uno? \\
+    Adjunción (\textit{attachment}) & No está claro a qué palabra se refiere un modificador & ``Escritores y editores con contrato por obra'': ¿aplica a ambos o solo a editores? \\
+    Vaguedad de entidad & No está claro de qué entidad se habla & ``¿Quién emitió el CD Special?'': ¿el banco, la sucursal o ambos? \\
+    Amplitud (\textit{broadness}) & La pregunta está poco especificada & ``Estadísticas del mejor jugador'': ¿por puntos, victorias o draft? \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+
+  Otros ejemplos: ``placas blanco y negro'' (AND frente a OR); ``procedimientos de más de \$5{,}000'' (uno solo frente a la suma total).
+  \item \textbf{Diversidad lingüística.} Registros formales o coloquiales, jerga, contexto innecesario y palabras aproximadas (``espacioso'' en lugar de ``capacidad > 40'').
+  \item \textbf{Desalineación entre pregunta y SQL.} Preguntas que suenan razonables pero no corresponden al SQL. ``Promedio'' y ``máximo'' suenan parecido pero requieren AVG y MAX.
+  \item \textbf{Costo y privacidad.} Las APIs son caras y enviar esquemas internos a terceros es un riesgo.
+  \item \textbf{Cambio de distribución entre entrenamiento y prueba.} Entrenado con Spider y probado con FALCON: 0.05\%; al revés: 0.8\%. Entrenar solo con consultas complejas hace que el modelo complique las fáciles.
+  \item \textbf{Errores concretos de los modelos:}
+
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{@{}l c X@{}}
+    \toprule
+    \textbf{Error} & \textbf{\%} & \textbf{Ejemplo} \\
+    \midrule
+    Variación aceptable (no es error real) & 33 & Añadir una columna u ORDER BY no pedido \\
+    Predicado inventado & 20 & Añadir \texttt{WHERE status='active'} sin que se pida \\
+    Error de límites del resultado & 18 & Devolver 5 resultados cuando se pedían todos \\
+    Confusión de entidades del esquema & 10 & Usar ``bono'' en lugar de ``salario'' \\
+    Fallo con la negación & 4 & ``¿Quién \textit{no} ganó?'' devuelve a los ganadores \\
+    JOIN mal construido & 4 & Unir una tabla consigo misma o con la clave equivocada \\
+    Restricción entre filas aplanada & 4 & ``Vuelos desde Florida \textit{y} Nueva York'' como \texttt{origen='FL' AND origen='NY'} \\
+    Cuantificador con valor fijo & 4 & ``Mayor al promedio'' como \texttt{rating > 4} \\
+    Malinterpretar la pregunta & 3 & ``¿\textit{Cuántos} pedidos?'' devuelve la lista \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+  \item \textbf{Presión de contexto.} Con el esquema comprimido en el \textit{prompt}, el modelo confunde columnas y tablas.
+  \item \textbf{Las métricas subestiman la precisión.} Un tercio de los ``errores'' eran respuestas aceptables.
+  \item \textbf{Limitaciones de los modelos pequeños.} Algunos métodos de filtrado fallan con ellos (Source2Synth retuvo solo el 3.9\% de los ejemplos buenos con un modelo de 3B).
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: NL2SQL with Iterative Self-Refinement}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Alucinación de tablas y columnas.} Los LLM inventan nombres de tablas, columnas o relaciones que no existen en la base de datos.
+  \item \textbf{SQL sintácticamente inválido.} Ejemplo: el modelo usó \texttt{::float}, que es sintaxis de PostgreSQL, en una base SQLite. Es un problema de \textbf{dialecto de SQL}: cada motor tiene su propia sintaxis.
+  \item \textbf{SQL que no captura la intención del usuario.} La consulta se ejecuta pero responde otra cosa; sin una revisión del significado, estos errores pasan desapercibidos (``fallos lógicos silenciosos'').
+  \item \textbf{Métricas de negocio (KPIs) del dominio.} Términos como ``tasa de siniestralidad'' o ``conversión de cotizaciones'' tienen fórmulas exactas que el LLM no conoce y puede inventar o aproximar mal.
+  \item \textbf{Esquemas específicos de un dominio y sistemas antiguos (\textit{legacy}).} Muchas tablas relacionadas y nombres que solo entiende quien conoce el negocio.
+  \item \textbf{Columnas ambiguas.} Hace falta describir el significado de cada columna para distinguir campos parecidos (p.\ ej., \texttt{policy\_start\_year} frente a \texttt{assignment\_date}).
+  \item \textbf{Valores que no existen.} Sin conocer los valores posibles de cada columna (p.\ ej., \texttt{'Digital'}, \texttt{'Branch'}), el modelo puede filtrar por valores inexistentes en el WHERE.
+  \item \textbf{Errores numéricos sutiles.} División entre cero o división entera al calcular proporciones.
+  \item \textbf{Preguntas fuera del dominio.} El sistema debe reconocer cuándo una pregunta no tiene relación con la base de datos.
+  \item \textbf{Consultas analíticas más difíciles que las de recuperación.} 100\% en recuperación simple frente a $\sim$85\% en analítica con agregaciones y KPIs.
+  \item \textbf{Alto riesgo de los errores.} En seguros, una consulta incorrecta puede generar reportes erróneos, riesgos mal valuados o problemas regulatorios.
+  \item \textbf{Latencia.} La corrección en ciclos requiere unas 7 llamadas al LLM y unos 20 segundos por pregunta.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: DualSQL}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Esquemas grandes en la ventana de contexto.} Meter el esquema completo y datos de ejemplo de una base grande es poco práctico: los LLM \textbf{razonan peor con contextos largos} y procesarlos es caro.
+  \item \textbf{Anclaje en la base de datos.} El SQL debe basarse en el contexto real: \textit{schema linking} preciso, navegar relaciones complejas para hacer bien los JOINs y conocer el contenido de los datos para elegir los valores literales correctos.
+  \item \textbf{Brecha semántica.} El lenguaje natural es ambiguo y SQL es rígido; además se necesita conocimiento del dominio y el propio esquema puede ser ambiguo.
+  \item \textbf{Menciones ambiguas o abreviadas.} Lo que dice el usuario no coincide literalmente con los valores guardados en la base.
+  \item \textbf{Claves foráneas no declaradas.} Algunas relaciones entre tablas no aparecen en el esquema (DDL) y hay que inferirlas.
+  \item \textbf{Formatos inesperados en los datos.} Números guardados como texto, fechas con formatos no estándar o valores en otro idioma.
+  \item \textbf{Consultas válidas con resultados incorrectos.} Los modelos de un solo paso generan SQL que se ejecuta pero da la respuesta equivocada.
+  \item \textbf{\textit{Schema linking} todavía imperfecto.} Solo en el 65.8\% de los casos recupera \textit{todas} las tablas y columnas necesarias; con el esquema perfecto la precisión subiría unos 5 puntos.
+  \item \textbf{Limitaciones de la métrica EX.} No detecta filas duplicadas ni diferencias en el orden (falsos positivos) y penaliza columnas en distinto orden (falsos negativos). Afecta sobre todo a preguntas que requieren DISTINCT u ORDER BY.
+  \item \textbf{Errores de anotación en los benchmarks.} Al revisar BIRD encontraron y corrigieron 384 respuestas oficiales incorrectas.
+  \item \textbf{Seguridad.} Un sistema con acceso a datos reales necesita precauciones contra consultas que agoten recursos y contra la inyección de \textit{prompts}.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: DexterSQL}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Columnas confusas que solo se distinguen por sus datos.} Dos columnas con el mismo nombre en tablas distintas (\texttt{Patient.Diagnosis} y \texttt{Examination.Diagnosis}). El esquema y los valores de ejemplo no bastan; hay que analizar cómo se distribuyen los datos y cómo se relacionan las tablas.
+  \item \textbf{Errores recurrentes del modelo.} El LLM repite los mismos tipos de errores aunque elija bien las tablas y columnas. Ejemplo: \textbf{división entera} en proporciones (devuelve 0 en lugar de 0.5).
+  \item \textbf{Ejemplos \textit{few-shot} que no ayudan.} Se eligen por parecido general de la pregunta, no por la construcción SQL que causa el error, así que pueden parecer relevantes sin enseñar lo necesario.
+  \item \textbf{Condiciones omitidas, inventadas o mal ubicadas.} En preguntas complejas el modelo puede perder un filtro. Ejemplo: ``¿Cuántos exámenes del paciente 1 se diagnosticaron como PSS?'' --- si se pierde el filtro del diagnóstico, cuenta 2 en lugar de 1.
+  \item \textbf{Descomposición libre poco confiable.} Cuando el LLM divide la pregunta por su cuenta, los pasos intermedios pueden perder u inventar elementos.
+  \item \textbf{Sistemas sin \textit{fine-tuning}.} Su precisión depende del LLM que usan y son sensibles al contexto que reciben.
+  \item \textbf{Modelos abiertos frente a comerciales.} Los abiertos protegen la privacidad y pueden ser más baratos, pero suelen ser menos precisos; los comerciales son más precisos pero implican enviar el esquema a terceros y pagar más.
+  \item \textbf{\textit{Trade-off} en el \textit{schema linking}.} Los métodos con mucho \textit{recall} (no dejar fuera nada necesario) suelen traer mucho ruido: AutoLink recupera el 74\% de lo necesario pero con solo 16\% de precisión.
+  \item \textbf{Las preguntas difíciles siguen siendo el punto débil.} Con GPT-4o, los rivales caen de $\sim$75\% en preguntas simples a $\sim$57--59\% en las desafiantes.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: QDA-SQL}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Conversaciones de varios turnos.} El usuario hace preguntas relacionadas, y el sistema debe entender cómo se relaciona cada una con las anteriores. Hay cuatro tipos de relación:
+
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{@{}l X X@{}}
+    \toprule
+    \textbf{Relación} & \textbf{Qué pasa} & \textbf{Ejemplo} \\
+    \midrule
+    Refinar la condición & Misma entidad, otra condición & ``¿Qué carrera tiene menos alumnos?'' $\rightarrow$ ``¿Y la más popular?'' \\
+    Explorar el tema & Otra propiedad de la misma entidad & ``¿Capacidad del salón X?'' $\rightarrow$ ``¿Qué instalaciones tiene?'' \\
+    Cambiar el participante & Misma propiedad, otra entidad & ``Calificación del episodio A'' $\rightarrow$ ``¿Y del episodio B?'' \\
+    Explorar la respuesta & Profundizar en la respuesta anterior & ``Lista los departamentos'' $\rightarrow$ ``¿Salario promedio en Estadística?'' \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+  \item \textbf{Referencias al contexto anterior.} Preguntas como ``¿y la más popular?'' o ``¿qué instalaciones tiene?'' solo se entienden con la conversación previa.
+  \item \textbf{No todas las preguntas se responden con SQL.} Los sistemas generan SQL para todo, aunque no tenga sentido:
+
+  \begin{center}
+  \small
+  \begin{tabularx}{\linewidth}{@{}l X X@{}}
+    \toprule
+    \textbf{Tipo} & \textbf{Qué debería hacer} & \textbf{Ejemplo} \\
+    \midrule
+    Ambigua (de columna) & Pedir aclaración & Una palabra puede referirse a varias columnas \\
+    Ambigua (de valor) & Pedir aclaración & ``Glenn'' aparece como donante y como escuela \\
+    Sin respuesta (columna) & Explicar que falta la información & Preguntar por el país cuando no existe esa columna \\
+    Sin respuesta (valor) & Explicar que el valor no existe & Buscar un valor que no está en la tabla \\
+    Fuera de alcance & Explicar el límite del sistema & Pedir una búsqueda en internet \\
+    Impropia & Responder normal, sin SQL & ``¡Gracias!'' \\
+    \bottomrule
+  \end{tabularx}
+  \end{center}
+  \item \textbf{Respuestas incorrectas en lugar de admitir la duda.} Ante una pregunta ambigua o sin respuesta, el sistema inventa un SQL (p.\ ej., una columna \texttt{donator\_country} que no existe) en vez de pedir aclaración.
+  \item \textbf{Datos de entrenamiento incompletos.} Los datasets (Spider, SParC, CHASE) solo tienen pares pregunta--SQL, así que los modelos nunca aprenden a reconocer preguntas que no deben responderse.
+  \item \textbf{Anotar datos es caro.} Requiere especialistas en SQL; los métodos automáticos antiguos producen preguntas poco naturales.
+  \item \textbf{Conversaciones largas y preguntas difíciles.} El rendimiento cae con más turnos y con mayor dificultad de la consulta.
+  \item \textbf{\textit{Trade-off} entre generar SQL y reconocer el tipo de pregunta.} Entrenar solo con SQL mejora la generación, pero el modelo deja de distinguir preguntas ambiguas o sin respuesta.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: Text-to-SQL bajo control de acceso (RBAC)}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Los benchmarks asumen acceso total.} En la realidad cada usuario tiene permisos limitados por su rol; los resultados de los benchmarks no reflejan el rendimiento real.
+  \item \textbf{``Éxitos rechazados por RBAC''.} Consultas correctas según EX pero que usan tablas o columnas no permitidas, así que la base de datos las rechaza. Ejemplo: un ``analista de ventas'' pregunta por ventas por departamento, pero no tiene permiso para ver la tabla de empleados.
+  \item \textbf{Decidir si permitir o rechazar.} El sistema debe saber cuándo una pregunta se puede responder con los datos permitidos y cuándo debe negarse.
+  \item \textbf{Rechazo excesivo.} Negarse a responder preguntas que sí se podían contestar con datos permitidos.
+  \item \textbf{Errores silenciosos.} Según la base de datos, una consulta no autorizada puede causar un error o devolver datos ocultos sin avisar, lo que es difícil de depurar.
+  \item \textbf{Tipos de violación:}
+  \begin{itemize}
+    \item \textit{Valid-Guess:} usar columnas reales pero no permitidas.
+    \item \textit{Invalid-Guess:} usar columnas que no existen (alucinación).
+    \item \textit{Fail-to-Refuse:} generar SQL con columnas permitidas cuando la pregunta debía rechazarse.
+  \end{itemize}
+  \item \textbf{Ocultar el esquema no basta.} Si solo se muestran las columnas permitidas, el modelo no se niega: inventa columnas o responde con las que tiene.
+  \item \textbf{Más JOINs, más violaciones.} El razonamiento entre varias tablas hace más difícil respetar los permisos.
+  \item \textbf{El ``precipicio del rechazo'' (\textit{refusal cliff}).} El modelo razona correctamente que debe negarse, pero al final genera un SQL que viola los permisos. Es más frecuente en preguntas difíciles con razonamientos largos.
+  \item \textbf{Modelos abiertos frente a comerciales.} Los abiertos violan permisos mucho más (hasta 65\%); los comerciales respetan mejor, pero son más caros y tampoco son perfectos.
+  \item \textbf{\textit{Fine-tuning} y \textit{few-shot} no resuelven el problema.} El \textit{fine-tuning} funciona en el mismo dominio pero no se generaliza a otras bases y vuelve al modelo demasiado propenso a negarse; los ejemplos \textit{few-shot} dan resultados inestables.
+  \item \textbf{La métrica EX no mide el cumplimiento de permisos.} Mide la capacidad de programar, no si la consulta está autorizada.
+  \item \textbf{Fugas indirectas de información.} Deducir datos restringidos a partir de datos permitidos (p.\ ej., el salario a partir del pago por hora y las horas trabajadas); el benchmark no las cubre.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: SpecBridge}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Elecciones silenciosas.} La pregunta deja abierta una decisión de cálculo y el modelo elige una sin avisar. La consulta corre y da un número creíble, pero puede no ser lo que el usuario quería.
+  \item \textbf{Errores que no se ven.} Una consulta que falla es segura porque el error es visible; lo peligroso es la que funciona y calcula otra cosa. Quien no lee SQL nunca se entera.
+  \item \textbf{Decisiones de cálculo ambiguas:}
+  \begin{itemize}
+    \item \textit{Nivel de agregación:} promediar todos los registros o primero por grupo.
+    \item \textit{Unidad de conteo:} filas o entidades distintas.
+    \item \textit{Empates:} exactamente $N$ filas o todas las empatadas.
+    \item \textit{Valores faltantes:} incluir o excluir los \texttt{NULL}.
+    \item \textit{Umbral:} estricto (\texttt{>}) o inclusivo (\texttt{>=}).
+  \end{itemize}
+  \item \textbf{Los benchmarks solo aceptan una interpretación.} Spider y BIRD comparan contra una sola consulta de referencia, elegida por la convención de quien la escribió. Una respuesta válida con otra interpretación se marca como incorrecta: en BIRD, más de dos de cada cinco respuestas marcadas como erróneas en esas preguntas son correctas bajo la otra interpretación.
+  \item \textbf{Calcular no es lo mismo que reportar.} Los modelos saben calcular la otra interpretación, pero no la mencionan; mejorar el modelo no resuelve esto.
+  \item \textbf{Soluciones actuales que detienen al usuario.} Los asistentes comerciales rechazan la pregunta, piden aclaración o dan una sola interpretación; preguntar cuesta más turnos de conversación.
+  \item \textbf{Reescribir la pregunta cambia otras cosas.} Cuando el usuario elige una interpretación, reescribir la pregunta puede cambiar una fórmula o quitar una columna del resultado.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: SQLoom}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Errores pequeños pero decisivos.} Un alias, un operador o \texttt{COUNT(*)} en lugar de \texttt{COUNT(DISTINCT)} ocupa uno o dos tokens pero cambia la respuesta.
+  \item \textbf{Columnas inexistentes o equivocadas.} En su análisis de errores, las columnas equivocadas son el error más común de las preguntas medias a extra difíciles de Spider, seguidas de los errores semánticos.
+  \item \textbf{Convertir frases en el fragmento SQL correcto.} Confundir ``al menos dos'' (\texttt{>= 2}) con ``más de dos'' (\texttt{> 2}), ``total'' (\texttt{SUM}) con ``promedio'' (\texttt{AVG}), o el orden ascendente con el descendente.
+  \item \textbf{Cláusulas que dependen entre sí.} Agregar un JOIN de uno a muchos obliga a cambiar el conteo; el GROUP BY debe seguir a la entidad correcta. Cada cláusula parece bien por separado y la consulta puede dar el resultado correcto en la base de prueba, así que la ejecución no detecta el error.
+  \item \textbf{El \textit{fine-tuning} trata al SQL como texto.} Penaliza igual una consulta equivalente que una incorrecta, porque una pregunta puede tener varias consultas válidas.
+  \item \textbf{Costo y latencia de los agentes.} Autocorrección, varios agentes y selección de candidatos requieren muchas llamadas a modelos comerciales por pregunta.
+  \item \textbf{Errores en las anotaciones de Spider.} Encontraron 378 anotaciones erróneas: respuestas correctas rechazadas (163), preguntas poco especificadas cuya referencia devuelve columnas de más (71) o de menos (37), y referencias que contradicen la pregunta (31).
+  \item \textbf{Esquemas con nombres cortos o ambiguos.} Spider usa identificadores poco descriptivos, por lo que agregan descripciones de tablas, tipos y valores.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Dificultades: Post-SQLFix}
+% ------------------------------------------------------------
+\begin{enumerate}
+  \item \textbf{Errores frecuentes del SQL generado.} Errores de sintaxis, tablas o columnas inexistentes y violaciones de reglas de alcance y de tipos.
+  \item \textbf{SQL no se revisa antes de ejecutarse.} A diferencia de los lenguajes compilados, no hay un paso que detecte errores antes de ejecutar; el error aparece al ejecutar o, peor, la consulta devuelve un resultado incorrecto sin avisar.
+  \item \textbf{Mensajes de error vagos.} La retroalimentación de ejecución da síntomas (``error cerca de WHERE''), no la causa; cambia según el motor (SQLite, MySQL, PostgreSQL) y mezcla varias causas en un solo mensaje.
+  \item \textbf{Consultas que corren pero están mal.} Errores de alcance, agregaciones inválidas o resultados vacíos no producen ningún mensaje de error.
+  \item \textbf{Corregir y romper otra cosa.} Al corregir un error, el LLM introduce otros nuevos (ciclo de corregir y retroceder).
+  \item \textbf{Paradoja del arbitraje.} El mismo modelo no verificado propone la corrección y juzga si es válida.
+  \item \textbf{Taxonomía de errores en tres capas:}
+  \begin{itemize}
+    \item \textit{Sintácticos:} errores de escritura.
+    \item \textit{Estructurales:} cláusulas redundantes, funciones de agregación, precedencia de operadores lógicos, ASC/DESC y DISTINCT.
+    \item \textit{Semánticos según el esquema:} columnas o tablas equivocadas, faltantes o de más; condición o tipo de JOIN incorrecto; funciones de fecha, conversión, texto o matemáticas; formato de valores; condiciones y subconsultas incorrectas.
+  \end{itemize}
+  \item \textbf{Las herramientas de análisis existentes no bastan.} Los \textit{linters} revisan formato sin conocer el esquema; los verificadores de equivalencia necesitan una consulta de referencia que no existe al momento de generar.
+  \item \textbf{Límite: SQL complejo.} Las consultas muy complejas siguen siendo difíciles de reparar; algunas quedan fuera de las reglas definidas y el resultado depende también de qué tan capaz es el LLM.
+\end{enumerate}
+
+% ------------------------------------------------------------
+% PLANTILLA para las dificultades de un nuevo paper
+% ------------------------------------------------------------
+% \section{Dificultades: Nombre corto}
+% \begin{enumerate}
+%   \item \textbf{Dificultad.} Explicación y ejemplo.
+% \end{enumerate}
+
+\end{document}

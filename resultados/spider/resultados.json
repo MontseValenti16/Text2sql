@@ -1,0 +1,8 @@
+{
+  "consultas": 546,
+  "no_analizadas": 0,
+  "exactitud_arbol": 0.756,
+  "exactitud_bosque": 0.943,
+  "exactitud_base_clase_mayoritaria": 0.427,
+  "ari_kmeans": 0.194
+}

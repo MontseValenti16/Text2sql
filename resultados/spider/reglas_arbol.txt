@@ -1,0 +1,31 @@
+|--- longitud_tokens <= 8.50
+|   |--- columnas_select <= 1.50
+|   |   |--- like <= 0.50
+|   |   |   |--- class: easy
+|   |   |--- like >  0.50
+|   |   |   |--- class: medium
+|   |--- columnas_select >  1.50
+|   |   |--- class: medium
+|--- longitud_tokens >  8.50
+|   |--- longitud_tokens <= 22.50
+|   |   |--- profundidad_anidamiento <= 0.50
+|   |   |   |--- operaciones_conjunto <= 0.50
+|   |   |   |   |--- class: medium
+|   |   |   |--- operaciones_conjunto >  0.50
+|   |   |   |   |--- class: hard
+|   |   |--- profundidad_anidamiento >  0.50
+|   |   |   |--- longitud_tokens <= 13.50
+|   |   |   |   |--- class: hard
+|   |   |   |--- longitud_tokens >  13.50
+|   |   |   |   |--- class: extra
+|   |--- longitud_tokens >  22.50
+|   |   |--- limit <= 0.50
+|   |   |   |--- longitud_tokens <= 31.50
+|   |   |   |   |--- class: hard
+|   |   |   |--- longitud_tokens >  31.50
+|   |   |   |   |--- class: extra
+|   |   |--- limit >  0.50
+|   |   |   |--- columnas_select <= 2.50
+|   |   |   |   |--- class: extra
+|   |   |   |--- columnas_select >  2.50
+|   |   |   |   |--- class: extra
