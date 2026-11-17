@@ -1,4 +1,20 @@
+"""
+Caracterización de la dificultad de las consultas de un benchmark Text-to-SQL.
 
+1. Extrae características de cada consulta SQL con un analizador (sqlglot), sin LLM.
+2. Resume las características por nivel de dificultad.
+3. Supervisado: entrena un árbol de decisión y un bosque aleatorio que predicen
+   el nivel a partir de las características, y muestra qué características pesan más.
+4. No supervisado: agrupa las consultas con k-means y compara los grupos con los niveles.
+
+Requisitos:  pip install -r requirements.txt
+
+Uso (desde la carpeta del proyecto):
+  Spider:  python src/caracterizar_dificultad.py spider data/spider_dev_con_niveles.json resultados/spider
+           (JSON con campos "query" y "hardness"; se genera con src/etiquetar_spider.py)
+  BIRD:    python src/caracterizar_dificultad.py bird data/bird/mini_dev_prompt.jsonl resultados/bird
+           (BIRD Mini-Dev oficial, o el dev.json completo de BIRD; campos "SQL", "difficulty", "question", "evidence")
+"""
 import json, os, sys
 import numpy as np
 import pandas as pd
@@ -58,43 +74,58 @@ def caracteristicas(sql):
         "limit": int(principal.args.get("limit") is not None),
         "distinct": len(list(t.find_all(exp.Distinct))),
         "columnas_select": len(principal.expressions),
-        "case_when": len(list(t.find_all(exp.Case))),
-        "funciones_fecha_texto": len(list(t.find_all(exp.Cast, exp.Substring, exp.StrToTime, exp.TimeToStr,
-                                                       exp.Anonymous))),
+        "case_when": len(list(t.find_all(exp.Case, exp.If))),
+        "funciones": len([f for f in t.find_all(exp.Func)
+                          if not isinstance(f, (exp.AggFunc, exp.Case, exp.If, exp.TsOrDsToTimestamp))]),
         "aritmetica": len(list(t.find_all(exp.Add, exp.Sub, exp.Mul, exp.Div))),
         "longitud_tokens": len(sql.split()),
     }
 
 
 def cargar(tipo, ruta):
-    datos = json.load(open(ruta))
-    if tipo == "spider":
-        return [(d["query"], d["hardness"]) for d in datos], ["easy", "medium", "hard", "extra"]
-    return [(d["SQL"], d["difficulty"]) for d in datos], ["simple", "moderate", "challenging"]
+    """Devuelve una lista de registros {id, db_id, pregunta, evidencia, sql, nivel} y el orden de los niveles."""
+    if ruta.endswith(".jsonl"):
+        datos = [json.loads(l) for l in open(ruta, encoding="utf-8") if l.strip()]
+    else:
+        datos = json.load(open(ruta, encoding="utf-8"))
+    regs = []
+    for i, d in enumerate(datos):
+        if tipo == "spider":
+            regs.append({"id": f"spider-{i}", "db_id": d.get("db_id"), "pregunta": d.get("question", ""),
+                         "evidencia": "", "sql": d["query"], "nivel": d["hardness"]})
+        else:
+            regs.append({"id": f"bird-{d.get('question_id', i)}", "db_id": d.get("db_id"), "pregunta": d.get("question", ""),
+                         "evidencia": d.get("evidence", ""), "sql": d["SQL"], "nivel": d["difficulty"]})
+    orden = ["easy", "medium", "hard", "extra"] if tipo == "spider" else ["simple", "moderate", "challenging"]
+    return regs, orden
 
 
 def main(tipo, ruta, salida):
     os.makedirs(salida, exist_ok=True)
-    pares, orden = cargar(tipo, ruta)
+    regs, orden = cargar(tipo, ruta)
     # Quitar consultas repetidas (en Spider varias preguntas comparten la misma SQL);
     # si no, la misma consulta cae en entrenamiento y prueba y la exactitud se infla.
     vistos, unicos = set(), []
-    for sql, nivel in pares:
-        clave = " ".join(sql.lower().split())
+    for r in regs:
+        clave = " ".join(r["sql"].lower().split())
         if clave not in vistos:
-            vistos.add(clave); unicos.append((sql, nivel))
-    pares = unicos
-    filas, fallos = [], 0
-    for sql, nivel in pares:
+            vistos.add(clave); unicos.append(r)
+    filas, info, fallos = [], [], 0
+    for r in unicos:
         try:
-            f = caracteristicas(sql)
-            f["nivel"] = nivel
-            filas.append(f)
+            f = caracteristicas(r["sql"])
         except Exception:
             fallos += 1
+            continue
+        f["nivel"] = r["nivel"]
+        filas.append(f)
+        info.append({k: r[k] for k in ("id", "db_id", "pregunta", "evidencia", "sql")})
     df = pd.DataFrame(filas)
     df["nivel"] = pd.Categorical(df["nivel"], categories=orden, ordered=True)
     df.to_csv(os.path.join(salida, "caracteristicas.csv"), index=False)
+    completo = pd.concat([pd.DataFrame(info), df], axis=1)
+    completo.insert(0, "benchmark", tipo)
+    completo.to_csv(os.path.join(salida, "consultas_con_caracteristicas.csv"), index=False)
     X = df.drop(columns="nivel")
     y = df["nivel"].astype(str)
 
@@ -109,6 +140,9 @@ def main(tipo, ruta, salida):
         pct_group_by=("group_by", lambda s: 100 * s.mean()),
         prom_agregaciones=("agregaciones", "mean"),
         prom_condiciones_where=("condiciones_where", "mean"),
+        pct_case_iif=("case_when", lambda s: 100 * (s > 0).mean()),
+        prom_funciones=("funciones", "mean"),
+        pct_aritmetica=("aritmetica", lambda s: 100 * (s > 0).mean()),
         prom_longitud=("longitud_tokens", "mean"),
     ).round(2)
     resumen.to_csv(os.path.join(salida, "resumen_por_nivel.csv"))
@@ -130,6 +164,18 @@ def main(tipo, ruta, salida):
     open(os.path.join(salida, "reglas_arbol.txt"), "w").write(reglas)
     base = y.value_counts(normalize=True).max()
 
+    # 3b. ¿Pesa la pregunta o la SQL? Mismo bosque con características de la pregunta en lenguaje natural
+    comparacion = {}
+    pq = pd.DataFrame({
+        "palabras_pregunta": [len(str(r["pregunta"]).split()) for r in info],
+        "palabras_evidencia": [len(str(r["evidencia"]).split()) for r in info],
+    })
+    if pq["palabras_pregunta"].sum() > 0:
+        if pq["palabras_evidencia"].sum() == 0:
+            pq = pq.drop(columns="palabras_evidencia")
+        for nombre, M in [("solo_sql", X), ("solo_pregunta", pq), ("sql_y_pregunta", pd.concat([X, pq], axis=1))]:
+            comparacion[nombre] = round(cross_val_score(RandomForestClassifier(n_estimators=300, random_state=0), M, y, cv=cv).mean(), 3)
+
     # 4. No supervisado
     Z = StandardScaler().fit_transform(X)
     km = KMeans(n_clusters=len(orden), n_init=20, random_state=0).fit(Z)
@@ -141,7 +187,7 @@ def main(tipo, ruta, salida):
     fig, ax = plt.subplots(figsize=(8, 4.5))
     imp.head(10)[::-1].plot.barh(ax=ax, color="#2E9E6B")
     ax.set_xlabel("Importancia en el bosque aleatorio")
-    ax.set_title("Características que más explican el nivel")
+    ax.set_title(f"Características que más explican el nivel ({tipo})")
     fig.tight_layout(); fig.savefig(os.path.join(salida, "importancia.png"), dpi=150); plt.close(fig)
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True, sharey=True)
@@ -158,9 +204,9 @@ def main(tipo, ruta, salida):
 
     res = {"consultas": len(df), "no_analizadas": fallos, "exactitud_arbol": round(acc_arbol, 3),
            "exactitud_bosque": round(acc_bosque, 3), "exactitud_base_clase_mayoritaria": round(base, 3),
-           "ari_kmeans": round(ari, 3)}
+           "ari_kmeans": round(ari, 3), "bosque_segun_entrada": comparacion}
     json.dump(res, open(os.path.join(salida, "resultados.json"), "w"), indent=2)
-    print(json.dumps(res, indent=2)); print(resumen.to_string()); print(cm.to_string()); print(imp.round(3).head(10).to_string()); print(reglas)
+    print(json.dumps(res, indent=2)); print(resumen.to_string()); print(cm.to_string()); print(imp.round(3).head(12).to_string()); print(reglas)
 
 
 if __name__ == "__main__":

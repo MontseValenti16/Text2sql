@@ -1,0 +1,40 @@
+|--- longitud_tokens <= 23.50
+|   |--- condiciones_where <= 2.50
+|   |   |--- longitud_tokens <= 13.50
+|   |   |   |--- distinct <= 0.50
+|   |   |   |   |--- class: simple
+|   |   |   |--- distinct >  0.50
+|   |   |   |   |--- class: simple
+|   |   |--- longitud_tokens >  13.50
+|   |   |   |--- condiciones_where <= 0.50
+|   |   |   |   |--- class: simple
+|   |   |   |--- condiciones_where >  0.50
+|   |   |   |   |--- class: simple
+|   |--- condiciones_where >  2.50
+|   |   |--- longitud_tokens <= 16.50
+|   |   |   |--- class: simple
+|   |   |--- longitud_tokens >  16.50
+|   |   |   |--- case_when <= 0.50
+|   |   |   |   |--- class: moderate
+|   |   |   |--- case_when >  0.50
+|   |   |   |   |--- class: simple
+|--- longitud_tokens >  23.50
+|   |--- longitud_tokens <= 42.50
+|   |   |--- longitud_tokens <= 34.50
+|   |   |   |--- funciones <= 3.50
+|   |   |   |   |--- class: moderate
+|   |   |   |--- funciones >  3.50
+|   |   |   |   |--- class: challenging
+|   |   |--- longitud_tokens >  34.50
+|   |   |   |--- aritmetica <= 0.50
+|   |   |   |   |--- class: moderate
+|   |   |   |--- aritmetica >  0.50
+|   |   |   |   |--- class: challenging
+|   |--- longitud_tokens >  42.50
+|   |   |--- case_when <= 0.50
+|   |   |   |--- longitud_tokens <= 63.00
+|   |   |   |   |--- class: challenging
+|   |   |   |--- longitud_tokens >  63.00
+|   |   |   |   |--- class: challenging
+|   |   |--- case_when >  0.50
+|   |   |   |--- class: challenging

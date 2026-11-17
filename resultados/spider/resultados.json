@@ -2,7 +2,12 @@
   "consultas": 546,
   "no_analizadas": 0,
   "exactitud_arbol": 0.756,
-  "exactitud_bosque": 0.943,
+  "exactitud_bosque": 0.945,
   "exactitud_base_clase_mayoritaria": 0.427,
-  "ari_kmeans": 0.194
+  "ari_kmeans": 0.191,
+  "bosque_segun_entrada": {
+    "solo_sql": 0.945,
+    "solo_pregunta": 0.494,
+    "sql_y_pregunta": 0.943
+  }
 }

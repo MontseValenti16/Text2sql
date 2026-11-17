@@ -1,0 +1,13 @@
+{
+  "consultas": 500,
+  "no_analizadas": 0,
+  "exactitud_arbol": 0.702,
+  "exactitud_bosque": 0.68,
+  "exactitud_base_clase_mayoritaria": 0.5,
+  "ari_kmeans": 0.067,
+  "bosque_segun_entrada": {
+    "solo_sql": 0.68,
+    "solo_pregunta": 0.612,
+    "sql_y_pregunta": 0.776
+  }
+}
