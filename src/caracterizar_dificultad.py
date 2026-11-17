@@ -15,7 +15,7 @@ Uso (desde la carpeta del proyecto):
   BIRD:    python src/caracterizar_dificultad.py bird data/bird/mini_dev_prompt.jsonl resultados/bird
            (BIRD Mini-Dev oficial, o el dev.json completo de BIRD; campos "SQL", "difficulty", "question", "evidence")
 """
-import json, os, sys
+import json, os, re, sys
 import numpy as np
 import pandas as pd
 import sqlglot
@@ -100,6 +100,16 @@ def cargar(tipo, ruta):
     return regs, orden
 
 
+def medidas_texto(texto, nombre):
+    """Longitud de un texto en palabras, en frases y en palabras por frase."""
+    texto = "" if pd.isna(texto) else str(texto).strip()
+    palabras = len(texto.split())
+    # Una frase termina en . ? ! o ; seguido de espacio o del final (no corta decimales como 3.5)
+    frases = len([f for f in re.split(r"[.?!;](?:\s+|$)", texto) if f.strip()]) if texto else 0
+    return {f"palabras_{nombre}": palabras, f"frases_{nombre}": frases,
+            f"palabras_por_frase_{nombre}": round(palabras / frases, 2) if frases else 0}
+
+
 def main(tipo, ruta, salida):
     os.makedirs(salida, exist_ok=True)
     regs, orden = cargar(tipo, ruta)
@@ -164,17 +174,22 @@ def main(tipo, ruta, salida):
     open(os.path.join(salida, "reglas_arbol.txt"), "w").write(reglas)
     base = y.value_counts(normalize=True).max()
 
-    # 3b. ¿Pesa la pregunta o la SQL? Mismo bosque con características de la pregunta en lenguaje natural
+    # 3b. ¿Pesa la pregunta o la SQL? Se mide el enunciado en lenguaje natural (pregunta y,
+    # en BIRD, la evidencia) en palabras, en frases y en palabras por frase.
+    pq = pd.DataFrame([medidas_texto(r["pregunta"], "pregunta") | medidas_texto(r["evidencia"], "evidencia")
+                       for r in info])
+    pq = pq.loc[:, pq.sum() > 0]  # Spider no tiene evidencia
+    pd.concat([pq, df["nivel"]], axis=1).groupby("nivel", observed=True).mean().round(2).to_csv(
+        os.path.join(salida, "resumen_pregunta_por_nivel.csv"))
     comparacion = {}
-    pq = pd.DataFrame({
-        "palabras_pregunta": [len(str(r["pregunta"]).split()) for r in info],
-        "palabras_evidencia": [len(str(r["evidencia"]).split()) for r in info],
-    })
-    if pq["palabras_pregunta"].sum() > 0:
-        if pq["palabras_evidencia"].sum() == 0:
-            pq = pq.drop(columns="palabras_evidencia")
-        for nombre, M in [("solo_sql", X), ("solo_pregunta", pq), ("sql_y_pregunta", pd.concat([X, pq], axis=1))]:
-            comparacion[nombre] = round(cross_val_score(RandomForestClassifier(n_estimators=300, random_state=0), M, y, cv=cv).mean(), 3)
+    if len(pq.columns):
+        def exactitud(M):
+            return round(cross_val_score(RandomForestClassifier(n_estimators=300, random_state=0), M, y, cv=cv).mean(), 3)
+        comparacion["solo_sql"] = round(acc_bosque, 3)
+        for medida in ["palabras", "frases", "palabras_por_frase"]:
+            comparacion[f"solo_pregunta_{medida}"] = exactitud(pq[[c for c in pq.columns if c.startswith(medida + "_")]])
+        comparacion["solo_pregunta"] = exactitud(pq)
+        comparacion["sql_y_pregunta"] = exactitud(pd.concat([X, pq], axis=1))
 
     # 4. No supervisado
     Z = StandardScaler().fit_transform(X)

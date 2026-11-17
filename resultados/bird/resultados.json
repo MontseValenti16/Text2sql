@@ -7,7 +7,10 @@
   "ari_kmeans": 0.067,
   "bosque_segun_entrada": {
     "solo_sql": 0.68,
-    "solo_pregunta": 0.612,
+    "solo_pregunta_palabras": 0.612,
+    "solo_pregunta_frases": 0.568,
+    "solo_pregunta_palabras_por_frase": 0.51,
+    "solo_pregunta": 0.63,
     "sql_y_pregunta": 0.776
   }
 }
