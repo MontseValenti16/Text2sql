@@ -1,0 +1,9 @@
+grupo,descripcion,spider,bird,Spider fácil,Spider medio,Spider difícil,Spider extra,BIRD simple,BIRD moderado,BIRD desafiante,% Spider difícil o extra,% BIRD desafiante
+G1,"Una tabla, sin subconsulta ni cálculos (control)",265,26,126,119,19,1,21,3,2,7.5,7.7
+G2,"1 o 2 JOINs, sin subconsulta ni cálculos",154,103,2,91,20,41,50,45,8,39.6,7.8
+G3,"3 JOINs, sin subconsulta ni cálculos",1,5,0,0,0,1,0,4,1,100.0,20.0
+G4,"Cálculos (aritmética, CASE/IIF o funciones) sin subconsulta",38,302,0,23,9,6,65,171,66,39.5,21.9
+G5,Subconsulta sin JOIN,28,16,0,0,18,10,6,8,2,100.0,12.5
+G6,Subconsulta y JOIN,15,39,1,0,1,13,4,16,19,93.3,48.7
+G7,"Operaciones de conjunto (UNION, INTERSECT, EXCEPT)",41,1,1,0,23,17,0,1,0,97.6,0.0
+G8,"Extremos: 4 o más JOINs, o 2 o más niveles de subconsulta",4,8,0,0,0,4,2,2,4,100.0,50.0
