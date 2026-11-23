@@ -6,8 +6,14 @@ Grupos de dificultad y muestreo estratificado de consultas representantes.
 2. Asigna cada consulta a un grupo según lo que la vuelve difícil (JOINs,
    subconsultas, operaciones de conjunto, cálculos), más fino que los niveles.
 3. Resume cada grupo: cuántas consultas tiene en cada benchmark y en qué niveles caen.
-4. Elige representantes de cada grupo con un muestreo estratificado (no al azar
-   sobre todo el conjunto): un número fijo por grupo, mezclando benchmarks.
+4. Elige representantes con un muestreo estratificado: 3 consultas por grupo
+   (8 grupos x 3 = 24). En cada grupo, 2 de BIRD y 1 de Spider:
+   - BIRD: una al azar del nivel más alto que tenga el grupo y otra del siguiente nivel
+     hacia abajo, así las dos son de niveles distintos.
+   - Spider: una al azar del nivel más alto que tenga el grupo.
+   - G1 (control) se recorre al revés: se empieza por el nivel más bajo.
+   - Si un benchmark no tiene suficientes consultas en el grupo, se completa con el otro.
+   «Nivel» es el que asigna el benchmark; «grupo» es el nuestro (G1 a G8).
 
 Uso (desde la carpeta del proyecto):
   python src/muestreo_estratificado.py resultados/spider/consultas_con_caracteristicas.csv \
@@ -35,7 +41,7 @@ GRUPOS = [
     ("G2", "1 o 2 JOINs, sin subconsulta ni cálculos",
      lambda r: r.joins in (1, 2), 3),
     ("G1", "Una tabla, sin subconsulta ni cálculos (control)",
-     lambda r: True, 2),
+     lambda r: True, 3),
 ]
 ORDEN_NIVEL = {"easy": 1, "medium": 2, "hard": 3, "extra": 4, "simple": 1, "moderate": 2, "challenging": 3}
 NOMBRE_NIVEL = {"easy": "Spider fácil", "medium": "Spider medio", "hard": "Spider difícil", "extra": "Spider extra",
@@ -79,7 +85,7 @@ def main(rutas, salida):
     for gid, nombre, _, n in sorted(GRUPOS, key=lambda g: g[0]):
         sub = df[df.grupo == gid]
         elegidas = []
-        cuotas = {"bird": n - n // 3, "spider": n // 3} if n >= 3 else {"bird": 1, "spider": 1}
+        cuotas = {"bird": 2, "spider": 1}  # 3 por grupo: 2 de BIRD (de niveles distintos) y 1 de Spider
         for bench, k in cuotas.items():
             cand = sub[sub.benchmark == bench].sample(frac=1, random_state=SEMILLA)
             # una por nivel, de mayor a menor dificultad (en G1, el grupo de control, de menor

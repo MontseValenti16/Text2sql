@@ -32,6 +32,7 @@ aparezca en entrenamiento y prueba.
 src/etiquetar_spider.py         Calcula el nivel oficial de cada consulta de Spider
 src/caracterizar_dificultad.py  Características, modelos y gráficas
 src/muestreo_estratificado.py   Grupos de dificultad y muestra de consultas representantes
+src/analisis_ari.py             Por qué k-means no reproduce los niveles (análisis del ARI)
 data/spider_dev_con_niveles.json  Consultas de desarrollo de Spider con su nivel
 resultados/spider/               Resultados del análisis de Spider
 resultados/bird/                 Resultados del análisis de BIRD (Mini-Dev)
@@ -57,6 +58,9 @@ python src/caracterizar_dificultad.py bird data/bird/mini_dev_prompt.jsonl resul
 # Grupos y muestra estratificada (usa la salida de los dos análisis anteriores)
 python src/muestreo_estratificado.py resultados/spider/consultas_con_caracteristicas.csv \
     resultados/bird/consultas_con_caracteristicas.csv resultados/muestra
+
+# Análisis del ARI (qué agrupa k-means y por qué no coincide con los niveles)
+python src/analisis_ari.py resultados/bird/consultas_con_caracteristicas.csv resultados/bird
 ```
 
 Cada ejecución genera en la carpeta de resultados: `caracteristicas.csv`,
@@ -124,7 +128,33 @@ pasó a 94.5%. La diferencia no es significativa.)
 - k-means: ARI = 0.07. El ARI vale 0 cuando los grupos coinciden con los niveles igual
   que si fueran al azar y 1 cuando coinciden por completo, así que 0.07 es prácticamente
   aleatorio: sin conocer los niveles, las consultas no se agrupan como los expertos las
-  clasificaron.
+  clasificaron. Ver el análisis siguiente.
+
+### ¿Por qué el ARI es tan bajo? (`src/analisis_ari.py`)
+
+k-means sí encuentra grupos claros, pero agrupa por **tipo de consulta**, no por
+dificultad (`kmeans_grupos_vs_niveles.csv`):
+
+| Grupo que forma k-means | Simple | Moderado | Desafiante | Total |
+|---|---|---|---|---|
+| Con GROUP BY | 5 | 23 | 10 | 38 |
+| Con cálculos (CASE/IIF, aritmética) | 14 | 47 | 50 | 111 |
+| Filtros y JOINs, sin agrupar ni calcular | 129 | 180 | 42 | 351 |
+
+- Cada grupo de k-means mezcla los tres niveles. El de cálculos tiene más consultas
+  desafiantes (45%), pero también 14 simples; el grupo grande tiene de todo.
+- No es un error del código: el ARI se queda entre −0.02 y 0.07 con 2 a 8 grupos, con
+  logaritmo de las características y usando solo las 7 más importantes.
+- El ARI es una medida muy estricta: las predicciones del bosque aleatorio, que acierta
+  el 68%, tienen un ARI de solo 0.24, y cortar las consultas en tres por su longitud da
+  0.21. Con niveles que se traslapan tanto, un ARI alto no es posible; 0.07 indica que
+  la estructura que encuentra k-means es otra.
+- Conclusión: en BIRD el nivel no corresponde a un tipo de consulta, sino a una mezcla de
+  longitud, cálculos y enunciado. Los grupos de k-means se parecen a nuestros grupos G
+  (GROUP BY, cálculos), lo que apoya elegir las consultas de prueba por estructura.
+- En Spider pasa lo mismo, pero menos: k-means separa GROUP BY, subconsultas y
+  operaciones de conjunto, y como la regla de Spider se basa en esas mismas partes, el
+  ARI sube a 0.19.
 
 ### El enunciado: pregunta y evidencia
 
@@ -183,23 +213,52 @@ Cada consulta se asigna al primer grupo que cumple, en este orden (G8 primero):
 | G7 | UNION / INTERSECT / EXCEPT | 41 | 1 | 97.6 | 0 |
 | G8 | Extremos: 4+ JOINs o 2+ niveles de subconsulta | 4 | 8 | 100 | 50.0 |
 
-La muestra (`resultados/muestra/muestra_representantes.csv`, semilla 2026) tiene 23
-consultas. En cada grupo:
+La muestra (`resultados/muestra/muestra_representantes.csv`, semilla 2026) tiene **24
+consultas: 3 por grupo** (8 × 3). Hay dos clasificaciones distintas: el **grupo** (G1 a
+G8) es el nuestro, por estructura; el **nivel** es el que asigna cada benchmark (BIRD:
+simple, moderado, desafiante; Spider: fácil, medio, difícil, extra). En cada grupo:
 
-1. Se toman 3 consultas: 2 de BIRD y 1 de Spider. En G1 se toman 2: 1 de cada benchmark.
-2. Dentro de cada benchmark, las consultas del grupo se separan por el nivel que les
-   da el benchmark (en BIRD: simple, moderado, desafiante).
-3. La primera consulta de BIRD sale al azar del nivel más alto que haya en el grupo; la
-   segunda, del siguiente nivel hacia abajo. Así las dos de BIRD son de niveles
-   distintos. De Spider solo se toma una, del nivel más alto que haya en el grupo.
+1. Se toman **2 consultas de BIRD y 1 de Spider**.
+2. Las 2 de BIRD son siempre **de niveles distintos**: una al azar del nivel más alto que
+   tenga el grupo y otra al azar del nivel siguiente hacia abajo. Solo se usan esos dos
+   niveles, no todos.
+3. La de Spider sale al azar del nivel más alto que tenga el grupo. Como es una sola, en
+   Spider no hay cambio de nivel.
 4. En G1, el grupo de control, se hace al revés: se empieza por el nivel más bajo, para
    tener consultas fáciles que comprueben que cada herramienta funciona.
-5. Si un benchmark no tiene suficientes consultas en el grupo, se completa con
-   consultas del otro (en G7 solo hay 1 de BIRD, así que se tomaron 2 de Spider).
+5. Excepción: si un benchmark no tiene suficientes consultas en el grupo, se completa con
+   el otro. Solo pasa en G7, que tiene una sola consulta de BIRD, así que lleva 1 de BIRD
+   y 2 de Spider.
 
 Huecos: G3 y G8 tienen muy pocas consultas, G7 casi no existe en BIRD, y ningún
 benchmark pasa de 5 JOINs ni de 3 niveles de subconsulta. Para encontrar el límite de
 las herramientas habrá que **inventar consultas** con más JOINs y más anidamiento.
+
+## Herramientas candidatas
+
+Indicadores de popularidad y madurez (noviembre de 2026). Commits, fechas y versiones
+salen del historial de git de cada repositorio; estrellas y forks, de la página de GitHub
+(los marcados con * vienen de ecosyste.ms o sourcepulse y pueden estar desactualizados).
+"Papers" es en cuántos de los 16 artículos leídos aparece la herramienta.
+
+| Herramienta | Tipo | Estrellas | Forks | Commits | Versiones | Primer / último commit | Licencia | Papers | LLM que usa |
+|---|---|---|---|---|---|---|---|---|---|
+| Vanna | Biblioteca de Python | 23.8k | 2.5k | 972 | 78 (última v2.0.2, feb 2026) | may 2023 / feb 2026 | MIT | 0 | Cualquiera (API u Ollama local) |
+| WrenAI | Plataforma (Docker) | 18.0k | 2.1k | 2,780 | 507 etiquetas (varios componentes) | may 2022 / nov 2026 | AGPL-3.0 y otras | 0 | Configurable |
+| XiYan-SQL | Método + modelos propios | 1.0k | 53 | 163 | 0 | nov 2024 / may 2026 | Apache-2.0 | 2 | Sus modelos (Hugging Face) |
+| DAIL-SQL | Método de investigación (prompts) | ~640* | ~66* | 24 | 0 | ago 2023 / mar 2025 | Apache-2.0 | 6 | API de OpenAI |
+| OmniSQL | Modelo abierto (7B, 14B, 32B) | ~455* | – | 17 | 0 | feb 2025 / sep 2025 | – | 6 | Local (necesita GPU) |
+| MAC-SQL | Método de investigación (agentes) | 347 | 54 | 35 | 0 | dic 2023 / feb 2025 | – | 5 | API de GPT-4 o su modelo |
+| DIN-SQL | Método de investigación (prompts) | ~297* | ~58* | 29 | 0 | mar 2023 / oct 2023 | MIT | 11 | API de OpenAI |
+| CHESS | Método de investigación (agentes) | ~115* | ~28* | 9 | 0 | jun 2024 / nov 2024 | Apache-2.0 | 7 | API de LLM (configurable) |
+
+- Hay dos familias. **Productos** (Vanna, WrenAI): muy populares, con muchas versiones y
+  activos, pero ningún paper los usa. **Métodos de investigación** (DIN-SQL, DAIL-SQL,
+  CHESS, MAC-SQL, OmniSQL): son las referencias con las que se comparan los papers
+  (DIN-SQL aparece en 11 de 16), pero no publican versiones y casi no se actualizan.
+- Propuesta preliminar, a confirmar tras instalarlas: **Vanna** (producto más popular y
+  maduro), **DAIL-SQL** o **DIN-SQL** (la referencia más citada), **CHESS** (agentes) y
+  **OmniSQL** (modelo local, sin costo de API).
 
 ## Datos y créditos
 

@@ -1,0 +1,5 @@
+grupo_kmeans,easy,extra,hard,medium,total
+Con GROUP BY,10,39,20,68,137
+Con UNION/INTERSECT/EXCEPT,0,24,24,8,56
+Con subconsulta,2,24,20,0,46
+"Filtros y JOINs, sin agrupar ni calcular",118,6,26,157,307

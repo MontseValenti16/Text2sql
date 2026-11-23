@@ -1,0 +1,23 @@
+{
+  "ari_kmeans": 0.067,
+  "robustez": {
+    "k=2": 0.011,
+    "k=3": 0.067,
+    "k=4": -0.017,
+    "k=5": 0.03,
+    "k=6": 0.03,
+    "k=7": 0.03,
+    "k=8": 0.04,
+    "logaritmo": 0.069,
+    "solo_7_mas_importantes": 0.06
+  },
+  "ari_cortar_solo_por_longitud": 0.205,
+  "ari_predicciones_bosque": 0.242,
+  "exactitud_bosque": 0.68,
+  "caracteristicas_casi_constantes": [
+    "operaciones_conjunto",
+    "having",
+    "or",
+    "like"
+  ]
+}

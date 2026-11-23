@@ -1,0 +1,22 @@
+,Con GROUP BY,"Con cálculos (CASE/IIF, aritmética)","Filtros y JOINs, sin agrupar ni calcular"
+tablas,2.26,2.04,2.07
+joins,1.16,1.04,1.05
+subconsultas,0.18,0.41,0.09
+profundidad_anidamiento,0.16,0.32,0.08
+operaciones_conjunto,0.03,0.01,0.0
+agregaciones,1.45,2.23,0.3
+tipos_agregacion,1.05,1.44,0.29
+group_by,1.0,0.0,0.0
+columnas_group_by,1.26,0.0,0.0
+having,0.24,0.0,0.0
+condiciones_where,1.42,0.99,1.75
+or,0.11,0.02,0.04
+like,0.03,0.11,0.05
+order_by,0.53,0.04,0.18
+limit,0.5,0.05,0.18
+distinct,0.13,0.12,0.21
+columnas_select,1.58,1.14,1.35
+case_when,0.16,1.95,0.04
+funciones,1.13,2.13,1.05
+aritmetica,0.45,2.05,0.11
+longitud_tokens,36.21,40.57,26.13
