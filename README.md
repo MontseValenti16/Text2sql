@@ -283,6 +283,15 @@ Todavía no se ejecutaron consultas: eso requiere una clave de API.
 - Entre las de prompts, DIN-SQL es más sencilla de poner en marcha que DAIL-SQL (no
   necesita Java ni CoreNLP). Entre las de agentes, MAC-SQL es más sencilla que CHESS.
 
+### Clave de Gemini
+
+Las herramientas usan Gemini a través de su dirección compatible con OpenAI. La clave va en
+un archivo `.env` en la carpeta del proyecto, que **no se sube a GitHub** (está en
+`.gitignore`):
+
+1. Copia `.env.ejemplo` como `.env` y pega tu clave en `GEMINI_API_KEY`.
+2. Comprueba que funciona: `python herramientas/probar_gemini.py`
+
 ## Datos y créditos
 
 - Spider: Yu et al. (2018), https://yale-lily.github.io/spider ·

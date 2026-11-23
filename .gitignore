@@ -6,3 +6,6 @@ venv/
 # Archivos descargados (se vuelven a bajar con los scripts)
 data/spider_oficial/
 data/bird/
+
+# Claves privadas (nunca subir a GitHub)
+.env
