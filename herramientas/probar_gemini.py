@@ -19,7 +19,7 @@ import sys
 import time
 
 from dotenv import load_dotenv
-from openai import APIStatusError, OpenAI
+from openai import APIError, APIStatusError, OpenAI
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -58,7 +58,8 @@ def main():
     if not clave:
         sys.exit("Falta GEMINI_API_KEY. Crea el archivo .env en la carpeta del proyecto "
                  "(copia .env.ejemplo) y pega ahí tu clave.")
-    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI)
+    # Máximo 60 s por intento y un solo reintento, para no quedarse esperando
+    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=60, max_retries=1)
     mensaje = [{"role": "user", "content":
                 f"Schema:\n{ESQUEMA}\n\nWrite only the SQLite query, without explanation, "
                 f"for this question: {PREGUNTA}"}]
@@ -75,6 +76,8 @@ def main():
             detalle = str(getattr(e, "message", "") or e)[:200]
             print(f"  Error {e.status_code}: {motivo}. Detalle: {detalle}")
             print("  Pruebo el siguiente modelo.")
+        except APIError as e:  # p. ej., tiempo de espera agotado
+            print(f"  No respondió ({type(e).__name__}). Pruebo el siguiente modelo.")
     else:
         sys.exit("Ningún modelo respondió. Espera unos minutos y vuelve a intentarlo.")
     print("Modelo usado:", modelo)
