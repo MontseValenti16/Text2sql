@@ -19,7 +19,7 @@ import sys
 import time
 
 from dotenv import load_dotenv
-from openai import OpenAI, RateLimitError
+from openai import APIStatusError, OpenAI
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -68,10 +68,15 @@ def main():
         try:
             r = cliente.chat.completions.create(model=modelo, messages=mensaje)
             break
-        except RateLimitError:
-            print("  Sin cuota disponible para este modelo (error 429); pruebo el siguiente.")
+        except APIStatusError as e:
+            motivo = {429: "sin cuota disponible para este modelo",
+                      503: "el servidor de Google está saturado en este momento"}.get(
+                          e.status_code, "error del servidor")
+            detalle = str(getattr(e, "message", "") or e)[:200]
+            print(f"  Error {e.status_code}: {motivo}. Detalle: {detalle}")
+            print("  Pruebo el siguiente modelo.")
     else:
-        sys.exit("Ningún modelo tuvo cuota disponible. Espera unos minutos y vuelve a intentarlo.")
+        sys.exit("Ningún modelo respondió. Espera unos minutos y vuelve a intentarlo.")
     print("Modelo usado:", modelo)
     segundos = time.time() - inicio
     print("\nPregunta:", PREGUNTA)
