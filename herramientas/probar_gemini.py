@@ -52,6 +52,33 @@ def candidatos(cliente):
     return orden
 
 
+def probar_nativo(clave, modelos, texto):
+    """Plan B: la API nativa de Gemini (paquete google-genai), la misma que usa AI Studio."""
+    try:
+        from google import genai
+    except ImportError:
+        sys.exit("Para el plan B instala el paquete: pip install google-genai")
+    cliente = genai.Client(api_key=clave)
+    for modelo in modelos:
+        print("Probando modelo (API nativa):", modelo)
+        inicio = time.time()
+        try:
+            r = cliente.models.generate_content(model=modelo, contents=texto)
+        except Exception as e:  # errores de cuota, saturación o tiempo
+            print(f"  Falló: {str(e)[:200]}")
+            continue
+        print("Modelo usado:", modelo, "(API nativa)")
+        print("\nPregunta:", PREGUNTA)
+        print("SQL generado:\n", (r.text or "").strip())
+        u = r.usage_metadata
+        if u:
+            print(f"\nTokens: {u.prompt_token_count} de entrada, {u.candidates_token_count} de salida")
+        print(f"Tiempo: {time.time() - inicio:.1f} s")
+        print("\nLa clave funciona con la API nativa (no con la dirección compatible con OpenAI).")
+        return
+    sys.exit("Tampoco respondió la API nativa. Espera un rato y vuelve a intentarlo.")
+
+
 def main():
     load_dotenv()
     clave = os.getenv("GEMINI_API_KEY")
@@ -63,7 +90,8 @@ def main():
     mensaje = [{"role": "user", "content":
                 f"Schema:\n{ESQUEMA}\n\nWrite only the SQLite query, without explanation, "
                 f"for this question: {PREGUNTA}"}]
-    for modelo in candidatos(cliente):
+    modelos = candidatos(cliente)
+    for modelo in modelos:
         print("Probando modelo:", modelo)
         inicio = time.time()
         try:
@@ -79,7 +107,9 @@ def main():
         except APIError as e:  # p. ej., tiempo de espera agotado
             print(f"  No respondió ({type(e).__name__}). Pruebo el siguiente modelo.")
     else:
-        sys.exit("Ningún modelo respondió. Espera unos minutos y vuelve a intentarlo.")
+        print("\nLa dirección compatible con OpenAI no respondió; pruebo la API nativa de Gemini.")
+        probar_nativo(clave, modelos, mensaje[0]["content"])
+        return
     print("Modelo usado:", modelo)
     segundos = time.time() - inicio
     print("\nPregunta:", PREGUNTA)
