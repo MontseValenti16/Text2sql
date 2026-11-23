@@ -58,8 +58,8 @@ def main():
     if not clave:
         sys.exit("Falta GEMINI_API_KEY. Crea el archivo .env en la carpeta del proyecto "
                  "(copia .env.ejemplo) y pega ahí tu clave.")
-    # Máximo 60 s por intento y un solo reintento, para no quedarse esperando
-    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=60, max_retries=1)
+    # Máximo 120 s por intento (GEMINI_TIMEOUT) y un solo reintento, para no quedarse esperando
+    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=int(os.getenv("GEMINI_TIMEOUT", "120")), max_retries=1)
     mensaje = [{"role": "user", "content":
                 f"Schema:\n{ESQUEMA}\n\nWrite only the SQLite query, without explanation, "
                 f"for this question: {PREGUNTA}"}]
