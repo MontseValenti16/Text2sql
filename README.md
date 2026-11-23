@@ -244,7 +244,7 @@ salen del historial de git de cada repositorio; estrellas y forks, de la página
 | Herramienta | Tipo | Estrellas | Forks | Commits | Versiones | Primer / último commit | Licencia | Papers | LLM que usa |
 |---|---|---|---|---|---|---|---|---|---|
 | Vanna | Biblioteca de Python | 23.8k | 2.5k | 972 | 78 (última v2.0.2, feb 2026) | may 2023 / feb 2026 | MIT | 0 | Cualquiera (API u Ollama local) |
-| WrenAI | Plataforma (Docker) | 18.0k | 2.1k | 2,780 | 507 etiquetas (varios componentes) | may 2022 / nov 2026 | AGPL-3.0 y otras | 0 | Configurable |
+| WrenAI | Capa semántica para agentes (CLI de Python) | 18.0k | 2.1k | 2,780 | 507 etiquetas (varios componentes) | may 2022 / nov 2026 | Apache-2.0 | 0 | El del agente que la usa (Claude Code, LangChain, etc.) |
 | XiYan-SQL | Método + modelos propios | 1.0k | 53 | 163 | 0 | nov 2024 / may 2026 | Apache-2.0 | 2 | Sus modelos (Hugging Face) |
 | DAIL-SQL | Método de investigación (prompts) | ~640* | ~66* | 24 | 0 | ago 2023 / mar 2025 | Apache-2.0 | 6 | API de OpenAI |
 | OmniSQL | Modelo abierto (7B, 14B, 32B) | ~455* | – | 17 | 0 | feb 2025 / sep 2025 | – | 6 | Local (necesita GPU) |
@@ -256,9 +256,32 @@ salen del historial de git de cada repositorio; estrellas y forks, de la página
   activos, pero ningún paper los usa. **Métodos de investigación** (DIN-SQL, DAIL-SQL,
   CHESS, MAC-SQL, OmniSQL): son las referencias con las que se comparan los papers
   (DIN-SQL aparece en 11 de 16), pero no publican versiones y casi no se actualizan.
-- Propuesta preliminar, a confirmar tras instalarlas: **Vanna** (producto más popular y
-  maduro), **DAIL-SQL** o **DIN-SQL** (la referencia más citada), **CHESS** (agentes) y
-  **OmniSQL** (modelo local, sin costo de API).
+- **Selección acordada:** Vanna y WrenAI (los dos productos más populares y maduros), una
+  herramienta de prompts (DAIL-SQL o DIN-SQL) y una de agentes (MAC-SQL o CHESS). Dentro
+  de cada pareja se elegirá la que se instale y funcione mejor. OmniSQL queda fuera
+  porque necesita GPU.
+- La versión actual de WrenAI ya no es una plataforma con interfaz propia: es una capa
+  semántica que usan agentes como Claude Code o LangChain para escribir el SQL.
+
+### Prueba de instalación (noviembre de 2026)
+
+Cada herramienta se instaló en un entorno aparte, con la versión de Python que pide su
+README y sus dependencias tal cual (`herramientas/prueba_instalacion.sh`, en Linux).
+Todavía no se ejecutaron consultas: eso requiere una clave de API.
+
+| Herramienta | Python | ¿Se instala? | Tiempo | Tamaño | Observaciones |
+|---|---|---|---|---|---|
+| Vanna 2.0.2 | 3.12 | Sí | 4 s | 0.2 GB | Paquete de pip. |
+| WrenAI 0.18.0 | 3.12 | Sí | 11 s | 0.5 GB | Su CLI ejecuta y controla el SQL, pero no lo genera: necesita un agente (LangChain, Claude Code) que escriba la consulta. |
+| MAC-SQL | 3.9 | Sí | 6 s | 0.2 GB | El código carga bien y permite cambiar la dirección de la API, así que es fácil usarlo con Gemini. |
+| DIN-SQL | 3.10 | Sí | 71 s | 3.7 GB | Dependencias antiguas (torch 1.13, openai 0.27). El script trae un error de sintaxis (`API_KEY = #key`) que hay que corregir, y el modelo está fijo en `gpt-4`. |
+| DAIL-SQL | 3.8 | Sí | 15 min | 5.2 GB | Python 3.8 ya no tiene soporte. Además necesita Java, el servidor Stanford CoreNLP y descargar datos de NLTK. |
+| CHESS | 3.10 | Sí | 33 s | 6.4 GB | Los *embeddings* de OpenAI están escritos en el código: para usar solo Gemini hay que modificarlo. |
+
+- Las seis se instalan, pero con esfuerzo muy distinto: Vanna, WrenAI y MAC-SQL son
+  ligeras; DIN-SQL, DAIL-SQL y CHESS bajan PyTorch y ocupan varios GB.
+- Entre las de prompts, DIN-SQL es más sencilla de poner en marcha que DAIL-SQL (no
+  necesita Java ni CoreNLP). Entre las de agentes, MAC-SQL es más sencilla que CHESS.
 
 ## Datos y créditos
 
