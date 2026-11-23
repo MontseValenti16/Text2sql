@@ -14,11 +14,12 @@ Uso (desde la carpeta del proyecto, con el entorno activado):
   python herramientas/probar_gemini.py
 """
 import os
+import re
 import sys
 import time
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
@@ -31,17 +32,24 @@ ESQUEMA = """CREATE TABLE singer (
 PREGUNTA = "How many singers are from France?"
 
 
-def elegir_modelo(cliente):
+def candidatos(cliente):
+    """Modelos flash ordenados de más a menos recomendable.
+
+    Primero el alias estable gemini-flash-latest, luego los numerados más nuevos.
+    Se evitan los preview y los omni, que suelen no tener cuota gratuita."""
     elegido = os.getenv("GEMINI_MODEL")
     if elegido:
-        return elegido
-    nombres = sorted(m.id.removeprefix("models/") for m in cliente.models.list())
+        return [elegido]
+    nombres = [m.id.removeprefix("models/") for m in cliente.models.list()]
     flash = [n for n in nombres if "flash" in n and "lite" not in n
              and not any(x in n for x in ("image", "tts", "audio", "live", "embedding"))]
-    print("Modelos flash disponibles:", ", ".join(flash) or "ninguno")
-    if not flash:
-        sys.exit("No encontré un modelo flash. Escribe uno en GEMINI_MODEL dentro de .env.")
-    return flash[-1]
+    print("Modelos flash disponibles:", ", ".join(sorted(flash)) or "ninguno")
+    estables = sorted((n for n in flash if re.fullmatch(r"gemini-[\d.]+-flash", n)),
+                      key=lambda n: [int(x) for x in re.findall(r"\d+", n)], reverse=True)
+    orden = [n for n in ["gemini-flash-latest"] if n in flash] + estables
+    if not orden:
+        sys.exit("No encontré un modelo flash estable. Escribe uno en GEMINI_MODEL dentro de .env.")
+    return orden
 
 
 def main():
@@ -51,16 +59,20 @@ def main():
         sys.exit("Falta GEMINI_API_KEY. Crea el archivo .env en la carpeta del proyecto "
                  "(copia .env.ejemplo) y pega ahí tu clave.")
     cliente = OpenAI(api_key=clave, base_url=URL_GEMINI)
-    modelo = elegir_modelo(cliente)
+    mensaje = [{"role": "user", "content":
+                f"Schema:\n{ESQUEMA}\n\nWrite only the SQLite query, without explanation, "
+                f"for this question: {PREGUNTA}"}]
+    for modelo in candidatos(cliente):
+        print("Probando modelo:", modelo)
+        inicio = time.time()
+        try:
+            r = cliente.chat.completions.create(model=modelo, messages=mensaje)
+            break
+        except RateLimitError:
+            print("  Sin cuota disponible para este modelo (error 429); pruebo el siguiente.")
+    else:
+        sys.exit("Ningún modelo tuvo cuota disponible. Espera unos minutos y vuelve a intentarlo.")
     print("Modelo usado:", modelo)
-
-    inicio = time.time()
-    r = cliente.chat.completions.create(
-        model=modelo,
-        messages=[{"role": "user", "content":
-                   f"Schema:\n{ESQUEMA}\n\nWrite only the SQLite query, without explanation, "
-                   f"for this question: {PREGUNTA}"}],
-    )
     segundos = time.time() - inicio
     print("\nPregunta:", PREGUNTA)
     print("SQL generado:\n", r.choices[0].message.content.strip())
