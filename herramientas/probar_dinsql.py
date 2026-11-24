@@ -83,11 +83,20 @@ def main():
     din["spider_schema"], din["spider_primary"], din["spider_foreign"] = \
         din["creatiing_schema"](tables_json_unido())
 
+    carpeta_log = os.path.join(comun.RAIZ, "resultados", "herramientas", "logs_dinsql")
+    os.makedirs(carpeta_log, exist_ok=True)
+    actual = {"id": ""}
+
     def llamar(prompt, stop):
         r = cliente.chat.completions.create(
             model=modelo, messages=[{"role": "user", "content": prompt}],
             temperature=0.0, stop=stop)
-        return r.choices[0].message.content or ""
+        texto = r.choices[0].message.content or ""
+        # Registro de cada etapa para poder revisar qué respondió el modelo
+        with open(os.path.join(carpeta_log, f"{actual['id']}.txt"), "a", encoding="utf-8") as f:
+            f.write(f"===== stop={stop} | finish_reason={r.choices[0].finish_reason}\n")
+            f.write(f"--- respuesta:\n{texto!r}\n\n")
+        return texto
 
     def con_intentos(funcion, *a):
         for i in range(INTENTOS):
@@ -104,6 +113,10 @@ def main():
 
     def generar(fila, ruta):
         # Mismos pasos que el ciclo principal de DIN-SQL.py
+        actual["id"] = fila["id"]
+        log = os.path.join(carpeta_log, f"{fila['id']}.txt")
+        if os.path.exists(log):
+            os.remove(log)
         pregunta, db = comun.pregunta_completa(fila), fila["db_id"]
         schema_links = con_intentos(generacion, din["schema_linking_prompt_maker"](pregunta, db))
         try:
