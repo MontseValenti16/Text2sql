@@ -304,7 +304,13 @@ SQL generado, el acierto, los tokens, las llamadas al LLM y el tiempo, en
 pip install gdown pandas "vanna[chromadb]" openai python-dotenv
 python herramientas/descargar_bases.py --grupos G1   # bases SQLite de la muestra
 python herramientas/probar_vanna.py --grupos G1
+
+pip install func_timeout sqlparse tiktoken nltk tqdm
+python herramientas/probar_macsql.py --grupos G1
 ```
+
+Las consultas en las que Gemini no responde (saturación) quedan como PENDIENTE y no
+cuentan como fallo; el tiempo de espera de los reintentos no se suma al de la herramienta.
 
 ## Datos y créditos
 

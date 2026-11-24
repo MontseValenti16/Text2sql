@@ -109,8 +109,29 @@ def extraer(zip_path, benchmark, db_ids):
                 while bloque := src.read(1 << 20):
                     dst.write(bloque)
             print(f"[{benchmark}] Extraída: {db}")
+        extraer_tables_json(z, internos, benchmark)
     if faltan:
         print(f"[{benchmark}] No encontré en el zip: {', '.join(faltan)}")
+
+
+def extraer_tables_json(z, internos, benchmark):
+    """Copia la descripción de los esquemas (tables.json) que usan algunas herramientas."""
+    destino = os.path.join(BASES, benchmark, "tables.json")
+    if os.path.exists(destino):
+        return
+    for fuente in [z] + [zipfile.ZipFile(z.open(n)) for n in internos]:
+        nombres = [n for n in fuente.namelist() if n.endswith("tables.json")
+                   and "test_" not in os.path.basename(n) and "__MACOSX" not in n]
+        nombres.sort(key=lambda n: (not os.path.basename(n).startswith("dev_"), len(n)))
+        if benchmark == "spider":
+            nombres.sort(key=lambda n: (os.path.basename(n) != "tables.json", len(n)))
+        if nombres:
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            with fuente.open(nombres[0]) as src, open(destino, "wb") as dst:
+                dst.write(src.read())
+            print(f"[{benchmark}] Extraída la descripción de esquemas: {nombres[0]}")
+            return
+    print(f"[{benchmark}] No encontré tables.json en el zip")
 
 
 def verificar(muestra):

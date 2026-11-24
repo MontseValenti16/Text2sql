@@ -38,6 +38,9 @@ def configuracion():
 ESPERAS = [15, 30, 60, 120]  # segundos entre reintentos si Gemini está saturado
 
 
+ESPERADO = {"segundos": 0.0}  # tiempo de espera por reintentos (no cuenta como tiempo de la herramienta)
+
+
 class ServicioNoDisponible(Exception):
     """Gemini no respondió tras varios intentos: no es un fallo de la herramienta."""
 
@@ -57,6 +60,7 @@ def llamar_con_reintentos(funcion, *args, **kwargs):
             print(f"    Gemini no disponible ({codigo or type(e).__name__}); "
                   f"reintento en {espera} s...")
             time.sleep(espera)
+            ESPERADO["segundos"] += espera
 
 
 class ContadorUso:
@@ -166,6 +170,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
             preparadas.add(ruta)
         uso = generar.uso
         uso.reiniciar()
+        ESPERADO["segundos"] = 0.0
         inicio, error, sin_servicio = time.time(), "", False
         try:
             sql = limpiar_sql(generar(f, ruta))
@@ -174,7 +179,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
         except Exception as e:
             detalle = getattr(e, "body", None) or str(e)
             sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(detalle)[:300]}"
-        segundos = round(time.time() - inicio, 1)
+        segundos = round(time.time() - inicio - ESPERADO["segundos"], 1)
         acierto, error_cal = calificar(ruta, sql, f["sql"]) if not error else (False, error)
         filas.append({"herramienta": herramienta, "modelo": modelo, "grupo": f["grupo"],
                       "benchmark": f["benchmark"], "id": f["id"], "db_id": f["db_id"],
