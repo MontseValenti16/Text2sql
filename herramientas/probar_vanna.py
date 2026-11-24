@@ -11,6 +11,8 @@ Uso (desde la carpeta del proyecto, con el entorno activado):
   python herramientas/probar_vanna.py --grupos G1
 """
 import argparse
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -44,13 +46,15 @@ def main():
         vn = Vanna(cliente, {"model": modelo, "temperature": 0,
                              "path": tempfile.mkdtemp(prefix="vanna_"),
                              **estado.get("config_extra", {})})
-        for ddl in comun.esquema_ddl(ruta):
-            vn.train(ddl=ddl)
+        with contextlib.redirect_stdout(io.StringIO()):  # Vanna imprime cada tabla
+            for ddl in comun.esquema_ddl(ruta):
+                vn.train(ddl=ddl)
         vn.connect_to_sqlite(ruta)
         estado["vn"] = vn
 
     def generar(fila, ruta):
-        return estado["vn"].generate_sql(comun.pregunta_completa(fila))
+        with contextlib.redirect_stdout(io.StringIO()):
+            return estado["vn"].generate_sql(comun.pregunta_completa(fila))
 
     generar.uso = uso
     comun.probar("Vanna", generar, args.grupos, preparar)

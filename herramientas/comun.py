@@ -43,6 +43,9 @@ class ContadorUso:
         original = cliente.chat.completions.create
 
         def create(*args, **kwargs):
+            # Gemini rechaza parámetros enviados como null (por ejemplo, stop=None que
+            # manda Vanna); se quitan sin cambiar nada más de la petición.
+            kwargs = {k: v for k, v in kwargs.items() if v is not None}
             r = original(*args, **kwargs)
             self.llamadas += 1
             if getattr(r, "usage", None):
@@ -143,7 +146,8 @@ def probar(herramienta, generar, grupos=None, preparar=None):
         try:
             sql = limpiar_sql(generar(f, ruta))
         except Exception as e:
-            sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(e)[:300]}"
+            detalle = getattr(e, "body", None) or str(e)
+            sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(detalle)[:300]}"
         segundos = round(time.time() - inicio, 1)
         acierto, error_cal = calificar(ruta, sql, f["sql"]) if not error else (False, error)
         filas.append({"herramienta": herramienta, "modelo": modelo, "grupo": f["grupo"],
