@@ -1,8 +1,8 @@
 """
 Piezas comunes para probar las herramientas Text2SQL con las mismas reglas:
 
-- Mismo LLM para todas: Gemini por su dirección compatible con OpenAI, con el modelo de
-  GEMINI_MODEL (archivo .env).
+- Mismo LLM para todas, por su dirección compatible con OpenAI: Gemini (GEMINI_MODEL) o
+  Groq (GROQ_MODEL), según LLM_PROVEEDOR en el archivo .env.
 - Misma entrada: la pregunta y, en BIRD, también la evidencia (como en el benchmark).
 - Misma forma de calificar: exactitud por ejecución, como BIRD. Se ejecutan el SQL
   generado y el correcto, y se comparan los conjuntos de filas (sin importar el orden).
@@ -27,12 +27,26 @@ URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
 LIMITE_SEGUNDOS_SQL = 60  # una consulta que tarde más se corta y cuenta como fallo
 
 
+PROVEEDORES = {  # direcciones compatibles con OpenAI
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "GEMINI"),
+    "groq": ("https://api.groq.com/openai/v1", "GROQ"),
+}
+
+
 def configuracion():
+    """Devuelve (clave, modelo, url) del proveedor elegido en .env con LLM_PROVEEDOR.
+
+    Por defecto, Gemini (GEMINI_API_KEY, GEMINI_MODEL). Con LLM_PROVEEDOR=groq se usan
+    GROQ_API_KEY y GROQ_MODEL."""
     load_dotenv(os.path.join(RAIZ, ".env"))
-    clave, modelo = os.getenv("GEMINI_API_KEY"), os.getenv("GEMINI_MODEL")
+    proveedor = os.getenv("LLM_PROVEEDOR", "gemini").lower()
+    if proveedor not in PROVEEDORES:
+        sys.exit(f"LLM_PROVEEDOR debe ser uno de: {', '.join(PROVEEDORES)}")
+    url, prefijo = PROVEEDORES[proveedor]
+    clave, modelo = os.getenv(f"{prefijo}_API_KEY"), os.getenv(f"{prefijo}_MODEL")
     if not clave or not modelo:
-        sys.exit("Faltan GEMINI_API_KEY o GEMINI_MODEL en el archivo .env.")
-    return clave, modelo
+        sys.exit(f"Faltan {prefijo}_API_KEY o {prefijo}_MODEL en el archivo .env.")
+    return clave, modelo, url
 
 
 ESPERAS = [60, 120]  # segundos entre reintentos si Gemini está saturado (cada reintento gasta cuota)
@@ -42,7 +56,7 @@ ESPERADO = {"segundos": 0.0}  # tiempo de espera por reintentos (no cuenta como 
 
 
 class ServicioNoDisponible(Exception):
-    """Gemini no respondió tras varios intentos: no es un fallo de la herramienta."""
+    """El LLM no respondió tras varios intentos: no es un fallo de la herramienta."""
 
 
 CUOTA = {"agotada": False}  # si se agota la cuota diaria, no tiene caso seguir llamando
@@ -62,7 +76,7 @@ def detalle_error(e):
 def llamar_con_reintentos(funcion, *args, **kwargs):
     from openai import APIConnectionError, APIStatusError, APITimeoutError
     if CUOTA["agotada"]:
-        raise ServicioNoDisponible("cuota diaria de Gemini agotada")
+        raise ServicioNoDisponible("cuota diaria del LLM agotada")
     for i, espera in enumerate(ESPERAS + [None]):
         try:
             return funcion(*args, **kwargs)
@@ -71,16 +85,16 @@ def llamar_con_reintentos(funcion, *args, **kwargs):
             if codigo is not None and codigo not in (429, 500, 502, 503, 504):
                 raise  # error de la petición, no de saturación
             detalle = detalle_error(e)
-            if codigo == 429 and re.search(r"per ?day|PerDay|daily", detalle, re.I):
+            if codigo == 429 and re.search(r"per ?day|PerDay|daily|\(TPD\)|\(RPD\)", detalle, re.I):
                 CUOTA["agotada"] = True
-                print(f"    Se agotó la cuota DIARIA gratuita de Gemini: {detalle[:200]}",
+                print(f"    Se agotó la cuota DIARIA gratuita del LLM: {detalle[:200]}",
                       file=sys.stderr)
-                raise ServicioNoDisponible("cuota diaria de Gemini agotada")
+                raise ServicioNoDisponible("cuota diaria del LLM agotada")
             if espera is None:
-                raise ServicioNoDisponible(f"Gemini no respondió tras {len(ESPERAS) + 1} "
+                raise ServicioNoDisponible(f"El LLM no respondió tras {len(ESPERAS) + 1} "
                                            f"intentos (último error {codigo}: {detalle[:150]})")
             # A stderr, para que se vea aunque la herramienta oculte sus mensajes
-            print(f"    Gemini no disponible ({codigo or type(e).__name__}: {detalle[:120]}); "
+            print(f"    LLM no disponible ({codigo or type(e).__name__}: {detalle[:120]}); "
                   f"reintento en {espera} s...", file=sys.stderr)
             time.sleep(espera)
             ESPERADO["segundos"] += espera
@@ -93,7 +107,7 @@ class ContadorUso:
         self.llamadas = self.entrada = self.salida = 0
         original = cliente.chat.completions.create
 
-        rpm = float(os.getenv("GEMINI_RPM", "5"))  # límite de solicitudes por minuto
+        rpm = float(os.getenv("LLM_RPM", os.getenv("GEMINI_RPM", "5")))  # solicitudes por minuto
         intervalo = 60.0 / rpm + 1 if rpm > 0 else 0
         ultima = {"t": 0.0}
 
@@ -121,9 +135,10 @@ class ContadorUso:
 
 
 def cliente_gemini(timeout=180):
+    """Cliente del LLM elegido (Gemini o Groq), con contador de uso y límite por minuto."""
     from openai import OpenAI
-    clave, modelo = configuracion()
-    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=timeout, max_retries=0)
+    clave, modelo, url = configuracion()
+    cliente = OpenAI(api_key=clave, base_url=url, timeout=timeout, max_retries=0)
     return cliente, modelo, ContadorUso(cliente)
 
 
@@ -194,7 +209,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
 
     `preparar(ruta)` (opcional) se llama una vez por base de datos, antes de sus consultas."""
     muestra = cargar_muestra(grupos)
-    _, modelo = configuracion()
+    _, modelo, _ = configuracion()
     filas, preparadas = [], set()
     for _, f in muestra.iterrows():
         ruta = ruta_base(f)
@@ -208,7 +223,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
         try:
             sql = limpiar_sql(generar(f, ruta))
         except ServicioNoDisponible as e:
-            sql, error, sin_servicio = "", f"sin respuesta de Gemini: {e}", True
+            sql, error, sin_servicio = "", f"sin respuesta del LLM: {e}", True
         except Exception as e:
             detalle = getattr(e, "body", None) or str(e)
             sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(detalle)[:300]}"
@@ -239,5 +254,5 @@ def probar(herramienta, generar, grupos=None, preparar=None):
           f"Resultados en {os.path.relpath(ruta_csv, RAIZ)}")
     pendientes = total[total.sin_respuesta_llm]
     if len(pendientes):
-        print(f"{len(pendientes)} consulta(s) PENDIENTE(S): Gemini no respondió, así que no "
+        print(f"{len(pendientes)} consulta(s) PENDIENTE(S): El LLM no respondió, así que no "
               f"cuentan como fallo. Vuelve a correr el comando más tarde para completarlas.")
