@@ -307,6 +307,7 @@ python herramientas/probar_vanna.py --grupos G1
 
 pip install func_timeout sqlparse tiktoken nltk tqdm
 python herramientas/probar_macsql.py --grupos G1
+python herramientas/probar_dinsql.py --grupos G1
 ```
 
 Las consultas en las que Gemini no responde (saturación) quedan como PENDIENTE y no
