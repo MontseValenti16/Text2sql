@@ -35,6 +35,30 @@ def configuracion():
     return clave, modelo
 
 
+ESPERAS = [15, 30, 60, 120]  # segundos entre reintentos si Gemini está saturado
+
+
+class ServicioNoDisponible(Exception):
+    """Gemini no respondió tras varios intentos: no es un fallo de la herramienta."""
+
+
+def llamar_con_reintentos(funcion, *args, **kwargs):
+    from openai import APIConnectionError, APIStatusError, APITimeoutError
+    for i, espera in enumerate(ESPERAS + [None]):
+        try:
+            return funcion(*args, **kwargs)
+        except (APIStatusError, APIConnectionError, APITimeoutError) as e:
+            codigo = getattr(e, "status_code", None)
+            if codigo is not None and codigo not in (429, 500, 502, 503, 504):
+                raise  # error de la petición, no de saturación
+            if espera is None:
+                raise ServicioNoDisponible(f"Gemini no respondió tras {len(ESPERAS) + 1} "
+                                           f"intentos (último error: {codigo or type(e).__name__})")
+            print(f"    Gemini no disponible ({codigo or type(e).__name__}); "
+                  f"reintento en {espera} s...")
+            time.sleep(espera)
+
+
 class ContadorUso:
     """Cuenta llamadas y tokens de un cliente OpenAI sin cambiar la herramienta."""
 
@@ -46,7 +70,7 @@ class ContadorUso:
             # Gemini rechaza parámetros enviados como null (por ejemplo, stop=None que
             # manda Vanna); se quitan sin cambiar nada más de la petición.
             kwargs = {k: v for k, v in kwargs.items() if v is not None}
-            r = original(*args, **kwargs)
+            r = llamar_con_reintentos(original, *args, **kwargs)
             self.llamadas += 1
             if getattr(r, "usage", None):
                 self.entrada += r.usage.prompt_tokens or 0
@@ -62,7 +86,7 @@ class ContadorUso:
 def cliente_gemini(timeout=180):
     from openai import OpenAI
     clave, modelo = configuracion()
-    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=timeout, max_retries=2)
+    cliente = OpenAI(api_key=clave, base_url=URL_GEMINI, timeout=timeout, max_retries=0)
     return cliente, modelo, ContadorUso(cliente)
 
 
@@ -142,9 +166,11 @@ def probar(herramienta, generar, grupos=None, preparar=None):
             preparadas.add(ruta)
         uso = generar.uso
         uso.reiniciar()
-        inicio, error = time.time(), ""
+        inicio, error, sin_servicio = time.time(), "", False
         try:
             sql = limpiar_sql(generar(f, ruta))
+        except ServicioNoDisponible as e:
+            sql, error, sin_servicio = "", f"sin respuesta de Gemini: {e}", True
         except Exception as e:
             detalle = getattr(e, "body", None) or str(e)
             sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(detalle)[:300]}"
@@ -154,9 +180,10 @@ def probar(herramienta, generar, grupos=None, preparar=None):
                       "benchmark": f["benchmark"], "id": f["id"], "db_id": f["db_id"],
                       "nivel": f["nivel"], "pregunta": f["pregunta"], "sql_correcto": f["sql"],
                       "sql_generado": sql, "acierto": acierto, "error": error or error_cal,
+                      "sin_respuesta_llm": sin_servicio,
                       "llamadas_llm": uso.llamadas, "tokens_entrada": uso.entrada,
                       "tokens_salida": uso.salida, "segundos": segundos})
-        marca = "ACIERTO" if acierto else "FALLO"
+        marca = "ACIERTO" if acierto else ("PENDIENTE" if sin_servicio else "FALLO")
         print(f"{f['grupo']} {f['benchmark']:6} {f['nivel']:10} {marca:7} {segundos:6.1f} s "
               f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:80]}")
     os.makedirs(SALIDA, exist_ok=True)
@@ -169,5 +196,10 @@ def probar(herramienta, generar, grupos=None, preparar=None):
         nuevo = pd.concat([viejo, nuevo], ignore_index=True)
     nuevo.sort_values(["grupo", "benchmark"]).to_csv(ruta_csv, index=False)
     total = pd.DataFrame(filas)
-    print(f"\n{herramienta}: {int(total.acierto.sum())} de {len(total)} aciertos. "
+    validas = total[~total.sin_respuesta_llm]
+    print(f"\n{herramienta}: {int(validas.acierto.sum())} de {len(validas)} aciertos. "
           f"Resultados en {os.path.relpath(ruta_csv, RAIZ)}")
+    pendientes = total[total.sin_respuesta_llm]
+    if len(pendientes):
+        print(f"{len(pendientes)} consulta(s) PENDIENTE(S): Gemini no respondió, así que no "
+              f"cuentan como fallo. Vuelve a correr el comando más tarde para completarlas.")
