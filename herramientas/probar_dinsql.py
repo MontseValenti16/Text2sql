@@ -5,8 +5,9 @@ autocorrección) con las consultas de la muestra.
 Se usa el código original de DIN-SQL (versión fija, commit 0474801): sus prompts, sus
 ejemplos y las funciones que los arman. Solo se cambia, desde este script:
 - La llamada al LLM (GPT4_generation y GPT4_debug), para usar el mismo LLM que las demás
-  herramientas. Se conservan su temperatura 0 y sus "stop"; se quita el límite de tokens
-  de salida, porque los modelos que razonan lo gastan antes de responder.
+  herramientas. Se conservan su temperatura 0 y sus "stop" (aplicados a la respuesta, no en
+  la API, porque en los modelos que razonan la API también corta el razonamiento); se
+  quita el límite de tokens de salida, porque los modelos que razonan lo gastan antes.
 - El ciclo principal, que en el original lee un archivo dev.json: aquí se repiten los mismos
   pasos para cada consulta de la muestra, pero sin reintentar para siempre.
 - Si el modelo repite el "SELECT" con el que termina el prompt de autocorrección, no se
@@ -88,14 +89,19 @@ def main():
     actual = {"id": ""}
 
     def llamar(prompt, stop):
+        # Los "stop" se aplican aquí, sobre la respuesta final, y no se envían a la API: en
+        # los modelos que razonan, la API también corta el razonamiento (por ejemplo, en la
+        # primera línea en blanco) y la respuesta llega vacía.
         r = cliente.chat.completions.create(
-            model=modelo, messages=[{"role": "user", "content": prompt}],
-            temperature=0.0, stop=stop)
-        texto = r.choices[0].message.content or ""
+            model=modelo, messages=[{"role": "user", "content": prompt}], temperature=0.0)
+        completo = (r.choices[0].message.content or "").strip()
+        texto = completo
+        for corte in stop:
+            texto = texto.split(corte)[0]
         # Registro de cada etapa para poder revisar qué respondió el modelo
         with open(os.path.join(carpeta_log, f"{actual['id']}.txt"), "a", encoding="utf-8") as f:
             f.write(f"===== stop={stop} | finish_reason={r.choices[0].finish_reason}\n")
-            f.write(f"--- respuesta:\n{texto!r}\n\n")
+            f.write(f"--- respuesta completa:\n{completo!r}\n--- tras los stop:\n{texto!r}\n\n")
         return texto
 
     def con_intentos(funcion, *a):

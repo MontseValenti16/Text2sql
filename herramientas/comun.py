@@ -176,7 +176,11 @@ def limpiar_sql(texto):
     if not texto:
         return ""
     m = re.search(r"```(?:sql)?\s*(.*?)```", texto, re.S | re.I)
-    return (m.group(1) if m else texto).strip().rstrip(";").strip()
+    if m:
+        texto = m.group(1)
+    else:  # bloque sin cerrar (por ejemplo, cortado en ";")
+        texto = re.sub(r"^\s*```(?:sql)?\s*", "", texto, flags=re.I)
+    return texto.strip().rstrip(";").strip()
 
 
 def ejecutar(ruta, sql):
