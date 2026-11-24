@@ -1,0 +1,10 @@
+herramienta,modelo,grupo,benchmark,id,db_id,nivel,pregunta,sql_correcto,sql_generado,acierto,error,llamadas_llm,tokens_entrada,tokens_salida,segundos,sin_respuesta_llm
+Vanna,openai/gpt-oss-120b,G1,bird,bird-422,card_games,simple,What is the language of the card with the multiverse number 149934?,SELECT language FROM foreign_data WHERE multiverseid = 149934,"SELECT language
+FROM foreign_data
+WHERE multiverseid = 149934",True,,1,1282,188,1.5,False
+Vanna,openai/gpt-oss-120b,G1,bird,bird-572,codebase_community,moderate,How many views did the post titled 'Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer' get?,SELECT ViewCount FROM posts WHERE Title = 'Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer',"SELECT ViewCount
+FROM posts
+WHERE Title = 'Integration of Weka and/or RapidMiner into Informatica PowerCenter/Developer'",True,,1,1237,102,1.2,False
+Vanna,openai/gpt-oss-120b,G1,spider,spider-812,world_1,easy,What are the cities whose population is between 160000 and 900000?,SELECT name FROM city WHERE Population BETWEEN 160000 AND 900000,"SELECT Name
+FROM city
+WHERE Population BETWEEN 160000 AND 900000",True,,1,706,95,1.2,False
