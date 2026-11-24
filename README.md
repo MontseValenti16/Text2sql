@@ -292,6 +292,20 @@ un archivo `.env` en la carpeta del proyecto, que **no se sube a GitHub** (está
 1. Copia `.env.ejemplo` como `.env` y pega tu clave en `GEMINI_API_KEY`.
 2. Comprueba que funciona: `python herramientas/probar_gemini.py`
 
+### Probar las herramientas
+
+Todas se prueban con las mismas reglas (`herramientas/comun.py`): el mismo LLM
+(`GEMINI_MODEL`), la pregunta más la evidencia en BIRD, y exactitud por ejecución (el SQL
+generado debe devolver las mismas filas que el correcto). Para cada consulta se guardan el
+SQL generado, el acierto, los tokens, las llamadas al LLM y el tiempo, en
+`resultados/herramientas/<herramienta>.csv`.
+
+```bash
+pip install gdown pandas "vanna[chromadb]" openai python-dotenv
+python herramientas/descargar_bases.py --grupos G1   # bases SQLite de la muestra
+python herramientas/probar_vanna.py --grupos G1
+```
+
 ## Datos y créditos
 
 - Spider: Yu et al. (2018), https://yale-lily.github.io/spider ·

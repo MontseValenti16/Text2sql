@@ -9,3 +9,7 @@ data/bird/
 
 # Claves privadas (nunca subir a GitHub)
 .env
+
+# Bases de datos descargadas para probar las herramientas
+data/descargas/
+data/bases/
