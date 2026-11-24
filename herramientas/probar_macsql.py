@@ -64,6 +64,12 @@ def main():
             r.usage.prompt_tokens if r.usage else 0, r.usage.completion_tokens if r.usage else 0
 
     llm.api_func = api_func
+    # Si se agotó la cuota diaria, que MAC-SQL no espere 20 s entre sus reintentos
+    import time as _time
+    import types
+    llm.time = types.SimpleNamespace(
+        time=_time.time,
+        sleep=lambda s: None if comun.CUOTA["agotada"] else _time.sleep(s))
     llm.MODEL_NAME = modelo
     gestores = {}
 
@@ -74,16 +80,21 @@ def main():
             tablas = os.path.join(datos, "tables.json")
             if not os.path.exists(tablas):
                 sys.exit(f"Falta {tablas}. Vuelve a correr: python herramientas/descargar_bases.py")
-            with contextlib.redirect_stdout(io.StringIO()):
-                gestores[benchmark] = ChatManager(
-                    data_path=datos, tables_json_path=tablas,
-                    log_path=os.path.join("resultados", "herramientas", "logs_macsql", "log.txt"),
-                    model_name=modelo, dataset_name=benchmark, lazy=True)
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    gestores[benchmark] = ChatManager(
+                        data_path=datos, tables_json_path=tablas,
+                        log_path=os.path.join("resultados", "herramientas", "logs_macsql", "log.txt"),
+                        model_name=modelo, dataset_name=benchmark, lazy=True)
+            except Exception:  # MAC-SQL prueba la conexión al iniciar
+                gestores[benchmark] = None
 
     def generar(fila, ruta):
         mensaje = {"idx": fila["id"], "db_id": fila["db_id"], "query": fila["pregunta"],
                    "evidence": fila["evidencia"], "extracted_schema": {},
                    "ground_truth": "", "difficulty": "", "send_to": SYSTEM_NAME}
+        if gestores[fila["benchmark"]] is None:
+            raise comun.ServicioNoDisponible("MAC-SQL no pudo conectarse a Gemini al iniciar")
         sin_servicio["ocurrio"] = False
         try:
             with contextlib.redirect_stdout(io.StringIO()):

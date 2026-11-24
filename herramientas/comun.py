@@ -45,8 +45,24 @@ class ServicioNoDisponible(Exception):
     """Gemini no respondió tras varios intentos: no es un fallo de la herramienta."""
 
 
+CUOTA = {"agotada": False}  # si se agota la cuota diaria, no tiene caso seguir llamando
+
+
+def detalle_error(e):
+    cuerpo = getattr(e, "body", None)
+    if isinstance(cuerpo, list) and cuerpo:
+        cuerpo = cuerpo[0]
+    if isinstance(cuerpo, dict):
+        cuerpo = cuerpo.get("error", cuerpo)
+        if isinstance(cuerpo, dict):
+            return str(cuerpo.get("message", cuerpo))
+    return str(cuerpo or e)
+
+
 def llamar_con_reintentos(funcion, *args, **kwargs):
     from openai import APIConnectionError, APIStatusError, APITimeoutError
+    if CUOTA["agotada"]:
+        raise ServicioNoDisponible("cuota diaria de Gemini agotada")
     for i, espera in enumerate(ESPERAS + [None]):
         try:
             return funcion(*args, **kwargs)
@@ -54,11 +70,18 @@ def llamar_con_reintentos(funcion, *args, **kwargs):
             codigo = getattr(e, "status_code", None)
             if codigo is not None and codigo not in (429, 500, 502, 503, 504):
                 raise  # error de la petición, no de saturación
+            detalle = detalle_error(e)
+            if codigo == 429 and re.search(r"per ?day|PerDay|daily", detalle, re.I):
+                CUOTA["agotada"] = True
+                print(f"    Se agotó la cuota DIARIA gratuita de Gemini: {detalle[:200]}",
+                      file=sys.stderr)
+                raise ServicioNoDisponible("cuota diaria de Gemini agotada")
             if espera is None:
                 raise ServicioNoDisponible(f"Gemini no respondió tras {len(ESPERAS) + 1} "
-                                           f"intentos (último error: {codigo or type(e).__name__})")
-            print(f"    Gemini no disponible ({codigo or type(e).__name__}); "
-                  f"reintento en {espera} s...")
+                                           f"intentos (último error {codigo}: {detalle[:150]})")
+            # A stderr, para que se vea aunque la herramienta oculte sus mensajes
+            print(f"    Gemini no disponible ({codigo or type(e).__name__}: {detalle[:120]}); "
+                  f"reintento en {espera} s...", file=sys.stderr)
             time.sleep(espera)
             ESPERADO["segundos"] += espera
 
@@ -190,7 +213,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
                       "tokens_salida": uso.salida, "segundos": segundos})
         marca = "ACIERTO" if acierto else ("PENDIENTE" if sin_servicio else "FALLO")
         print(f"{f['grupo']} {f['benchmark']:6} {f['nivel']:10} {marca:7} {segundos:6.1f} s "
-              f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:80]}")
+              f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:160]}")
     os.makedirs(SALIDA, exist_ok=True)
     nombre = herramienta.lower().replace(" ", "_")
     ruta_csv = os.path.join(SALIDA, f"{nombre}.csv")
