@@ -35,7 +35,7 @@ def configuracion():
     return clave, modelo
 
 
-ESPERAS = [15, 30, 60, 120]  # segundos entre reintentos si Gemini está saturado
+ESPERAS = [60, 120]  # segundos entre reintentos si Gemini está saturado (cada reintento gasta cuota)
 
 
 ESPERADO = {"segundos": 0.0}  # tiempo de espera por reintentos (no cuenta como tiempo de la herramienta)
@@ -93,7 +93,17 @@ class ContadorUso:
         self.llamadas = self.entrada = self.salida = 0
         original = cliente.chat.completions.create
 
+        rpm = float(os.getenv("GEMINI_RPM", "5"))  # límite de solicitudes por minuto
+        intervalo = 60.0 / rpm + 1 if rpm > 0 else 0
+        ultima = {"t": 0.0}
+
         def create(*args, **kwargs):
+            # Espaciar las llamadas para no pasar el límite por minuto del nivel gratuito
+            falta = ultima["t"] + intervalo - time.time()
+            if falta > 0:
+                time.sleep(falta)
+                ESPERADO["segundos"] += falta
+            ultima["t"] = time.time()
             # Gemini rechaza parámetros enviados como null (por ejemplo, stop=None que
             # manda Vanna); se quitan sin cambiar nada más de la petición.
             kwargs = {k: v for k, v in kwargs.items() if v is not None}

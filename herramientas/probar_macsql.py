@@ -48,9 +48,9 @@ def main():
     from core.chat_manager import ChatManager
     from core.const import SYSTEM_NAME
 
-    # MAC-SQL ya reintenta cada llamada 5 veces (esperando 20 s), así que aquí se
-    # reintenta menos para no alargar la espera.
-    comun.ESPERAS[:] = [15, 30]
+    # MAC-SQL ya reintenta cada llamada 5 veces (esperando 20 s), así que aquí no se
+    # reintenta: cada reintento gasta cuota.
+    comun.ESPERAS[:] = []
     sin_servicio = {"ocurrio": False}
 
     def api_func(prompt):  # reemplaza la llamada a Azure OpenAI de MAC-SQL
