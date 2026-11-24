@@ -13,6 +13,7 @@ data/bird/
 # Bases de datos descargadas para probar las herramientas
 data/descargas/
 data/bases/
+data/wren/
 
 # Registros de las herramientas
 resultados/herramientas/logs_*/

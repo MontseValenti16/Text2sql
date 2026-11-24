@@ -308,7 +308,16 @@ python herramientas/probar_vanna.py --grupos G1
 pip install func_timeout sqlparse tiktoken nltk tqdm
 python herramientas/probar_macsql.py --grupos G1
 python herramientas/probar_dinsql.py --grupos G1
+
+python -m pip install wrenai wren-langchain langchain langchain-openai duckdb
+python herramientas/probar_wrenai.py --grupos G1
 ```
+
+WrenAI (versión 0.18) no genera SQL por sí misma: es una capa semántica que usa un agente.
+Se prueba con su integración oficial con LangChain, con el mismo LLM. El script copia cada
+base a DuckDB (WrenAI no se conecta a SQLite) y arma su modelo semántico (MDL) solo con
+tablas, columnas y llaves, sin descripciones, para que reciba la misma información que las
+demás herramientas. El SQL final del agente se ejecuta con WrenAI.
 
 Las consultas en las que Gemini no responde (saturación) quedan como PENDIENTE y no
 cuentan como fallo; el tiempo de espera de los reintentos no se suma al de la herramienta.

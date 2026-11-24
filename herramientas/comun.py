@@ -193,8 +193,30 @@ def ejecutar(ruta, sql):
         con.close()
 
 
-def calificar(ruta, sql_generado, sql_correcto):
-    """Devuelve (acierto, error). Acierto = mismas filas que el SQL correcto."""
+def normalizar(filas):
+    """Filas comparables entre motores distintos (por ejemplo, SQLite y DuckDB): números
+    como float redondeado, fechas y otros valores como texto."""
+    import decimal
+    salida = set()
+    for fila in filas:
+        valores = []
+        for v in fila:
+            if isinstance(v, bool):
+                v = int(v)
+            if isinstance(v, (int, float, decimal.Decimal)):
+                v = round(float(v), 4)
+            elif v is not None and not isinstance(v, str):
+                v = str(v)
+            valores.append(v)
+        salida.add(tuple(valores))
+    return salida
+
+
+def calificar(ruta, sql_generado, sql_correcto, ejecutor=None):
+    """Devuelve (acierto, error). Acierto = mismas filas que el SQL correcto.
+
+    `ejecutor(ruta, sql) -> filas` (opcional) ejecuta el SQL generado en otro motor (WrenAI
+    ejecuta en DuckDB); en ese caso los valores de ambos lados se normalizan."""
     try:
         esperado = set(ejecutar(ruta, sql_correcto))
     except Exception as e:
@@ -202,16 +224,19 @@ def calificar(ruta, sql_generado, sql_correcto):
     if not sql_generado:
         return False, "no generó SQL"
     try:
-        obtenido = set(ejecutar(ruta, sql_generado))
+        obtenido = set((ejecutor or ejecutar)(ruta, sql_generado))
     except Exception as e:
-        return False, f"error al ejecutar: {e}"
+        return False, f"error al ejecutar: {str(e)[:300]}"
+    if ejecutor:
+        return normalizar(obtenido) == normalizar(esperado), ""
     return obtenido == esperado, ""
 
 
-def probar(herramienta, generar, grupos=None, preparar=None):
+def probar(herramienta, generar, grupos=None, preparar=None, ejecutor=None):
     """Corre `generar(fila, ruta) -> sql` en cada consulta y guarda los resultados.
 
-    `preparar(ruta)` (opcional) se llama una vez por base de datos, antes de sus consultas."""
+    `preparar(ruta)` (opcional) se llama una vez por base de datos, antes de sus consultas.
+    `ejecutor(ruta, sql)` (opcional): ver calificar."""
     muestra = cargar_muestra(grupos)
     _, modelo, _ = configuracion()
     filas, preparadas = [], set()
@@ -232,7 +257,7 @@ def probar(herramienta, generar, grupos=None, preparar=None):
             detalle = getattr(e, "body", None) or str(e)
             sql, error = "", f"la herramienta falló: {type(e).__name__}: {str(detalle)[:300]}"
         segundos = round(time.time() - inicio - ESPERADO["segundos"], 1)
-        acierto, error_cal = calificar(ruta, sql, f["sql"]) if not error else (False, error)
+        acierto, error_cal = calificar(ruta, sql, f["sql"], ejecutor) if not error else (False, error)
         filas.append({"herramienta": herramienta, "modelo": modelo, "grupo": f["grupo"],
                       "benchmark": f["benchmark"], "id": f["id"], "db_id": f["db_id"],
                       "nivel": f["nivel"], "pregunta": f["pregunta"], "sql_correcto": f["sql"],
