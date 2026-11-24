@@ -34,6 +34,8 @@ BASES = os.path.join(RAIZ, "data", "bases")
 
 URL_BIRD = "https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip"
 ID_DRIVE_SPIDER = "1_AckYkinAnhqmRQtGsQgUKAnTHxxX5J0"
+# Respaldo si Google Drive no deja descargar: copia de las bases de Spider en Hugging Face
+URL_SPIDER_HF = "https://huggingface.co/datasets/HAL-9001/spider-databases/resolve/main/spider_data.zip"
 PAGINAS = {"bird": "https://github.com/bird-bench/mini_dev",
            "spider": "https://yale-lily.github.io/spider"}
 
@@ -46,16 +48,25 @@ def descargar(benchmark):
         return destino
     os.makedirs(DESCARGAS, exist_ok=True)
     print(f"[{benchmark}] Descargando {nombre} (puede tardar varios minutos)...")
+    def avance(bloques, tam, total):
+        if total > 0 and bloques % 200 == 0:
+            print(f"\r  {min(100, bloques * tam * 100 // total)}%", end="", flush=True)
+
     try:
         if benchmark == "bird":
-            def avance(bloques, tam, total):
-                if total > 0 and bloques % 200 == 0:
-                    print(f"\r  {min(100, bloques * tam * 100 // total)}%", end="", flush=True)
             urllib.request.urlretrieve(URL_BIRD, destino, avance)
             print()
         else:
-            import gdown
-            gdown.download(id=ID_DRIVE_SPIDER, output=destino, quiet=False)
+            try:
+                import gdown
+                gdown.download(id=ID_DRIVE_SPIDER, output=destino, quiet=False)
+                if not zipfile.is_zipfile(destino):
+                    raise RuntimeError("Google Drive no entregó el zip")
+            except Exception as e:
+                print(f"[spider] Google Drive no dejó descargar ({str(e).splitlines()[0]}).")
+                print("[spider] Pruebo la copia de Hugging Face...")
+                urllib.request.urlretrieve(URL_SPIDER_HF, destino, avance)
+                print()
     except Exception as e:
         sys.exit(f"[{benchmark}] No se pudo descargar ({e}).\n"
                  f"Bájalo a mano desde {PAGINAS[benchmark]} y guárdalo como {destino}")
