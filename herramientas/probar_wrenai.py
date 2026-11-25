@@ -202,18 +202,18 @@ def main():
     def preparar(ruta):
         toolkit = preparar_toolkit(ruta)
         herramientas = toolkit.get_tools(include_memory_write=False)
-        estado["toolkit"] = toolkit
-        estado["agente"] = create_agent(model=llm, tools=herramientas,
+        # Se guarda por base: varias consultas de grupos distintos usan la misma base.
+        estado[ruta] = toolkit, create_agent(model=llm, tools=herramientas,
                                         system_prompt=toolkit.system_prompt(tools=herramientas))
 
     def generar(fila, ruta):
-        respuesta = estado["agente"].invoke(
+        respuesta = estado[ruta][1].invoke(
             {"messages": [{"role": "user", "content": comun.pregunta_completa(fila)}]},
             {"recursion_limit": LIMITE_PASOS})
         return sql_final(respuesta["messages"])
 
     def ejecutar_con_wren(ruta, sql):
-        tabla = estado["toolkit"].query(sql)
+        tabla = estado[ruta][0].query(sql)
         return list(zip(*[columna.to_pylist() for columna in tabla.columns]))
 
     generar.uso = uso

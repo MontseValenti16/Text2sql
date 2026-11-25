@@ -50,11 +50,13 @@ def main():
             for ddl in comun.esquema_ddl(ruta):
                 vn.train(ddl=ddl)
         vn.connect_to_sqlite(ruta)
-        estado["vn"] = vn
+        # Se guarda por base: varias consultas de grupos distintos usan la misma base,
+        # y cada una debe usar la instancia entrenada con su propio esquema.
+        estado[ruta] = vn
 
     def generar(fila, ruta):
         with contextlib.redirect_stdout(io.StringIO()):
-            return estado["vn"].generate_sql(comun.pregunta_completa(fila))
+            return estado[ruta].generate_sql(comun.pregunta_completa(fila))
 
     generar.uso = uso
     comun.probar("Vanna", generar, args.grupos, preparar)
