@@ -23,6 +23,7 @@ con WrenAI y sus filas se comparan con las del SQL correcto ejecutado en SQLite.
 Uso (desde la carpeta del proyecto, con el entorno activado):
   python -m pip install wrenai wren-langchain langchain langchain-openai duckdb
   python herramientas/probar_wrenai.py --grupos G1
+  python herramientas/probar_wrenai.py --max 20   # sigue donde se quedó; 20 consultas nuevas
 """
 import argparse
 import json
@@ -192,7 +193,7 @@ def sql_final(mensajes):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
+    comun.agregar_opciones(p)
     args = p.parse_args()
     from langchain.agents import create_agent
 
@@ -217,7 +218,7 @@ def main():
         return list(zip(*[columna.to_pylist() for columna in tabla.columns]))
 
     generar.uso = uso
-    comun.probar("WrenAI", generar, args.grupos, preparar, ejecutor=ejecutar_con_wren)
+    comun.probar("WrenAI", generar, args.grupos, preparar, ejecutor=ejecutar_con_wren, maximo=args.max, repetir=args.repetir)
 
 
 if __name__ == "__main__":

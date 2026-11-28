@@ -21,6 +21,7 @@ En BIRD la pregunta incluye la evidencia (DIN-SQL fue diseñado para Spider, que
 Uso (desde la carpeta del proyecto, con el entorno activado):
   python herramientas/descargar_bases.py --grupos G1    # si falta tables.json
   python herramientas/probar_dinsql.py --grupos G1
+  python herramientas/probar_dinsql.py --max 20   # sigue donde se quedó; 20 consultas nuevas
 """
 import argparse
 import json
@@ -77,7 +78,7 @@ def tables_json_unido():
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
+    comun.agregar_opciones(p)
     args = p.parse_args()
     cliente, modelo, uso = comun.cliente_gemini()
     din = cargar_din_sql()
@@ -163,7 +164,7 @@ def main():
         return "SELECT " + corregido
 
     generar.uso = uso
-    comun.probar("DIN-SQL", generar, args.grupos)
+    comun.probar("DIN-SQL", generar, args.grupos, maximo=args.max, repetir=args.repetir)
 
 
 if __name__ == "__main__":

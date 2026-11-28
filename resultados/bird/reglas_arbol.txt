@@ -21,9 +21,9 @@
 |--- longitud_tokens >  23.50
 |   |--- longitud_tokens <= 42.50
 |   |   |--- longitud_tokens <= 34.50
-|   |   |   |--- funciones <= 3.50
+|   |   |   |--- funciones <= 2.50
 |   |   |   |   |--- class: moderate
-|   |   |   |--- funciones >  3.50
+|   |   |   |--- funciones >  2.50
 |   |   |   |   |--- class: challenging
 |   |   |--- longitud_tokens >  34.50
 |   |   |   |--- aritmetica <= 0.50

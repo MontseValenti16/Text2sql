@@ -28,15 +28,17 @@ def kmeans(Z, k):
 
 def describir(centro):
     """Nombre corto de un grupo según sus promedios."""
-    if centro["group_by"] > 0.5:
-        return "Con GROUP BY"
     if centro["aritmetica"] > 1 or centro["case_when"] > 1:
         return "Con cálculos (CASE/IIF, aritmética)"
+    if centro["group_by"] > 0.5:
+        return "Con GROUP BY"
+    if centro["order_by"] > 0.5:
+        return "Con ORDER BY y LIMIT (máximos y mínimos)"
     if centro["profundidad_anidamiento"] > 0.5:
         return "Con subconsulta"
     if centro["operaciones_conjunto"] > 0.3:
         return "Con UNION/INTERSECT/EXCEPT"
-    return "Filtros y JOINs, sin agrupar ni calcular"
+    return "Filtros y JOINs, sin agrupar, ordenar ni calcular"
 
 
 def main(ruta, salida):
@@ -49,7 +51,10 @@ def main(ruta, salida):
 
     # 1. Composición de cada grupo
     medias = df.groupby(grupos)[feats].mean()
-    nombres = {g: describir(medias.loc[g]) for g in medias.index}
+    nombres = {}
+    for g in medias.index:  # nombres únicos aunque dos grupos se describan igual
+        n = describir(medias.loc[g])
+        nombres[g] = n if n not in nombres.values() else f"{n} ({g + 1})"
     tabla = pd.crosstab(pd.Series(grupos).map(nombres).rename("grupo_kmeans"), y)
     tabla["total"] = tabla.sum(axis=1)
     tabla.to_csv(os.path.join(salida, "kmeans_grupos_vs_niveles.csv"))
@@ -59,7 +64,9 @@ def main(ruta, salida):
     robustez = {f"k={kk}": round(adjusted_rand_score(y, kmeans(Z, kk)), 3) for kk in range(2, 9)}
     robustez["logaritmo"] = round(adjusted_rand_score(
         y, kmeans(StandardScaler().fit_transform(np.log1p(X)), k)), 3)
-    top = ["longitud_tokens", "funciones", "condiciones_where", "aritmetica", "tablas", "joins", "case_when"]
+    ruta_imp = os.path.join(salida, "importancia_caracteristicas.csv")  # de caracterizar_dificultad.py
+    top = (list(pd.read_csv(ruta_imp, index_col=0).index[:7]) if os.path.exists(ruta_imp) else
+           ["longitud_tokens", "funciones", "condiciones_where", "aritmetica", "tablas", "joins", "case_when"])
     robustez["solo_7_mas_importantes"] = round(adjusted_rand_score(
         y, kmeans(StandardScaler().fit_transform(X[top]), k)), 3)
 

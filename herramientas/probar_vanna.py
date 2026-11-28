@@ -9,6 +9,7 @@ relevante la hace ChromaDB, como en la configuración estándar de Vanna.
 Uso (desde la carpeta del proyecto, con el entorno activado):
   pip install "vanna[chromadb]" openai pandas python-dotenv
   python herramientas/probar_vanna.py --grupos G1
+  python herramientas/probar_vanna.py --max 20   # sigue donde se quedó; 20 consultas nuevas
 """
 import argparse
 import contextlib
@@ -35,7 +36,7 @@ class Vanna(ChromaDB_VectorStore, OpenAI_Chat):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
+    comun.agregar_opciones(p)
     args = p.parse_args()
     cliente, modelo, uso = comun.cliente_gemini()
     estado = {}
@@ -59,7 +60,7 @@ def main():
             return estado[ruta].generate_sql(comun.pregunta_completa(fila))
 
     generar.uso = uso
-    comun.probar("Vanna", generar, args.grupos, preparar)
+    comun.probar("Vanna", generar, args.grupos, preparar, maximo=args.max, repetir=args.repetir)
 
 
 if __name__ == "__main__":

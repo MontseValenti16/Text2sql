@@ -195,7 +195,7 @@
   "agregaciones":1,
   "group_by":1,
   "case_when":0,
-  "funciones":2,
+  "funciones":1,
   "aritmetica":0,
   "longitud_tokens":36
  },
@@ -220,8 +220,8 @@
   "longitud_tokens":30
  },
  {
-  "grupo":"G4",
-  "nombre_grupo":"Cálculos (aritmética, CASE\/IIF o funciones) sin subconsulta",
+  "grupo":"G3",
+  "nombre_grupo":"3 JOINs, sin subconsulta ni cálculos",
   "benchmark":"spider",
   "id":"spider-171",
   "db_id":"car_1",
@@ -235,7 +235,7 @@
   "agregaciones":0,
   "group_by":0,
   "case_when":0,
-  "funciones":1,
+  "funciones":0,
   "aritmetica":0,
   "longitud_tokens":41
  },
@@ -275,7 +275,7 @@
   "agregaciones":0,
   "group_by":0,
   "case_when":0,
-  "funciones":1,
+  "funciones":0,
   "aritmetica":0,
   "longitud_tokens":22
  },
@@ -295,7 +295,7 @@
   "agregaciones":1,
   "group_by":0,
   "case_when":0,
-  "funciones":1,
+  "funciones":0,
   "aritmetica":0,
   "longitud_tokens":19
  },
@@ -435,7 +435,7 @@
   "agregaciones":1,
   "group_by":0,
   "case_when":2,
-  "funciones":11,
+  "funciones":9,
   "aritmetica":7,
   "longitud_tokens":114
  },
@@ -455,7 +455,7 @@
   "agregaciones":3,
   "group_by":0,
   "case_when":0,
-  "funciones":1,
+  "funciones":0,
   "aritmetica":0,
   "longitud_tokens":60
  },

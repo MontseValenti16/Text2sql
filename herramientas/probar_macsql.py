@@ -12,6 +12,7 @@ La primera vez se descarga el código de MAC-SQL en herramientas/externas/MAC-SQ
 Uso (desde la carpeta del proyecto, con el entorno activado):
   pip install openai pandas python-dotenv func_timeout sqlparse tiktoken nltk tqdm
   python herramientas/probar_macsql.py --grupos G1
+  python herramientas/probar_macsql.py --max 20   # sigue donde se quedó; 20 consultas nuevas
 """
 import argparse
 import contextlib
@@ -38,7 +39,7 @@ def obtener_codigo():
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
+    comun.agregar_opciones(p)
     args = p.parse_args()
     cliente, modelo, uso = comun.cliente_gemini()
     obtener_codigo()
@@ -109,7 +110,7 @@ def main():
         return sql
 
     generar.uso = uso
-    comun.probar("MAC-SQL", generar, args.grupos, preparar)
+    comun.probar("MAC-SQL", generar, args.grupos, preparar, maximo=args.max, repetir=args.repetir)
 
 
 if __name__ == "__main__":

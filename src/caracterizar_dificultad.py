@@ -75,8 +75,10 @@ def caracteristicas(sql):
         "distinct": len(list(t.find_all(exp.Distinct))),
         "columnas_select": len(principal.expressions),
         "case_when": len(list(t.find_all(exp.Case, exp.If))),
+        # sqlglot trata AND/OR/XOR como funciones; no son cálculos, así que no se cuentan
         "funciones": len([f for f in t.find_all(exp.Func)
-                          if not isinstance(f, (exp.AggFunc, exp.Case, exp.If, exp.TsOrDsToTimestamp))]),
+                          if not isinstance(f, (exp.AggFunc, exp.Case, exp.If, exp.TsOrDsToTimestamp,
+                                                exp.Connector))]),
         "aritmetica": len(list(t.find_all(exp.Add, exp.Sub, exp.Mul, exp.Div))),
         "longitud_tokens": len(sql.split()),
     }

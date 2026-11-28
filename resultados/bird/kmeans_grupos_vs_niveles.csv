@@ -1,4 +1,4 @@
 grupo_kmeans,challenging,moderate,simple,total
-Con GROUP BY,10,23,5,38
-"Con cálculos (CASE/IIF, aritmética)",50,47,14,111
-"Filtros y JOINs, sin agrupar ni calcular",42,180,129,351
+Con ORDER BY y LIMIT (máximos y mínimos),14,68,21,103
+"Con cálculos (CASE/IIF, aritmética)",7,0,0,7
+"Filtros y JOINs, sin agrupar, ordenar ni calcular",81,182,127,390

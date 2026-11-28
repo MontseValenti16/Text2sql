@@ -2,15 +2,15 @@
   "consultas": 500,
   "no_analizadas": 0,
   "exactitud_arbol": 0.702,
-  "exactitud_bosque": 0.68,
+  "exactitud_bosque": 0.688,
   "exactitud_base_clase_mayoritaria": 0.5,
-  "ari_kmeans": 0.067,
+  "ari_kmeans": -0.011,
   "bosque_segun_entrada": {
-    "solo_sql": 0.68,
+    "solo_sql": 0.688,
     "solo_pregunta_palabras": 0.612,
     "solo_pregunta_frases": 0.568,
     "solo_pregunta_palabras_por_frase": 0.51,
     "solo_pregunta": 0.63,
-    "sql_y_pregunta": 0.776
+    "sql_y_pregunta": 0.766
   }
 }

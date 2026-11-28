@@ -1,4 +1,4 @@
 nivel,consultas,prom_joins,max_joins,pct_con_join,pct_subconsulta,max_anidamiento,pct_operacion_conjunto,pct_group_by,prom_agregaciones,prom_condiciones_where,pct_case_iif,prom_funciones,pct_aritmetica,prom_longitud
-simple,148,0.68,3,60.14,8.11,2,0.0,3.38,0.52,1.3,7.43,0.58,10.14,20.32
-moderate,250,1.14,3,88.4,10.4,3,0.4,9.2,0.7,1.63,14.4,1.21,24.4,30.14
-challenging,102,1.39,5,95.1,24.51,2,0.98,9.8,1.53,1.74,41.18,2.54,57.84,44.23
+simple,148,0.68,3,60.14,8.11,2,0.0,3.38,0.52,1.3,7.43,0.2,10.14,20.32
+moderate,250,1.14,3,88.4,10.4,3,0.4,9.2,0.7,1.63,14.4,0.44,24.4,30.14
+challenging,102,1.39,5,95.1,24.51,2,0.98,9.8,1.53,1.74,41.18,1.6,57.84,44.23

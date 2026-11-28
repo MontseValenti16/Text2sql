@@ -56,6 +56,7 @@ def asignar(r):
 
 
 def main(rutas, salida):
+    rutas = [r for r in rutas if not r.startswith("--")]
     os.makedirs(salida, exist_ok=True)
     df = pd.concat([pd.read_csv(r) for r in rutas], ignore_index=True)
     df["grupo"] = df.apply(asignar, axis=1)
@@ -108,11 +109,22 @@ def main(rutas, salida):
             "joins", "profundidad_anidamiento", "operaciones_conjunto", "agregaciones", "group_by",
             "case_when", "funciones", "aritmetica", "longitud_tokens"]
     m = pd.DataFrame(muestra)[cols].fillna("")
-    m.to_csv(os.path.join(salida, "muestra_representantes.csv"), index=False)
+    ruta_m = os.path.join(salida, "muestra_representantes.csv")
+    if os.path.exists(ruta_m) and "--rehacer-muestra" not in sys.argv:
+        # La muestra ya se probó con las herramientas: no se reemplaza (solo se actualizan
+        # grupo y características de sus consultas). Para rehacerla: --rehacer-muestra
+        actual = pd.read_csv(ruta_m).fillna("")
+        info = df.set_index("id")
+        for c in [c for c in cols if c in info.columns and c != "id"]:
+            actual[c] = actual.id.map(info[c]).fillna(actual[c])
+        m = actual[cols].fillna("")
+        print("Se conserva la muestra ya probada (muestra_representantes.csv).")
+    m.to_csv(ruta_m, index=False)
     m.to_json(os.path.join(salida, "muestra_representantes.json"), orient="records", force_ascii=False, indent=1)
     print(resumen.to_string(index=False))
     print(m[["grupo", "benchmark", "nivel", "joins", "profundidad_anidamiento", "pregunta"]].to_string(index=False))
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:-1], sys.argv[-1])
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    main(args[:-1], args[-1])

@@ -28,7 +28,7 @@ import zipfile
 import pandas as pd
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MUESTRA = os.path.join(RAIZ, "resultados", "muestra", "muestra_representantes.csv")
+MUESTRA = os.path.join(RAIZ, "resultados", "muestra", "muestra_ampliada.csv")
 DESCARGAS = os.path.join(RAIZ, "data", "descargas")
 BASES = os.path.join(RAIZ, "data", "bases")
 

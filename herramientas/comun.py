@@ -20,7 +20,8 @@ import pandas as pd
 from dotenv import load_dotenv
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MUESTRA = os.path.join(RAIZ, "resultados", "muestra", "muestra_representantes.csv")
+# 80 consultas: 10 por grupo (src/ampliar_muestra.py); incluye las 24 de muestra_representantes.csv
+MUESTRA = os.path.join(RAIZ, "resultados", "muestra", "muestra_ampliada.csv")
 BASES = os.path.join(RAIZ, "data", "bases")
 SALIDA = os.path.join(RAIZ, "resultados", "herramientas")
 URL_GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -232,15 +233,60 @@ def calificar(ruta, sql_generado, sql_correcto, ejecutor=None):
     return obtenido == esperado, ""
 
 
-def probar(herramienta, generar, grupos=None, preparar=None, ejecutor=None):
+def agregar_opciones(parser):
+    """Opciones comunes de los scripts de prueba."""
+    parser.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
+    parser.add_argument("--max", type=int, default=None,
+                        help="Cuántas consultas nuevas correr como máximo (por ejemplo, 20 al día)")
+    parser.add_argument("--repetir", action="store_true",
+                        help="Volver a correr también las consultas que ya tienen resultado")
+
+
+def probar(herramienta, generar, grupos=None, preparar=None, ejecutor=None, maximo=None,
+           repetir=False):
     """Corre `generar(fila, ruta) -> sql` en cada consulta y guarda los resultados.
 
+    Sigue donde se quedó: salta las consultas que ya tienen resultado en el CSV (las
+    PENDIENTES sí se vuelven a correr), salvo con `repetir`. `maximo` limita cuántas se
+    corren en esta vez. El CSV se guarda después de cada consulta.
     `preparar(ruta)` (opcional) se llama una vez por base de datos, antes de sus consultas.
     `ejecutor(ruta, sql)` (opcional): ver calificar."""
     muestra = cargar_muestra(grupos)
+    completa = cargar_muestra()
     _, modelo, _ = configuracion()
+    os.makedirs(SALIDA, exist_ok=True)
+    nombre = herramienta.lower().replace(" ", "_")
+    ruta_csv = os.path.join(SALIDA, f"{nombre}.csv")
+    viejo = pd.read_csv(ruta_csv) if os.path.exists(ruta_csv) else pd.DataFrame()
+    hechas = set()
+    if len(viejo) and not repetir:
+        hechas = set(viejo[~viejo.sin_respuesta_llm.astype(bool)].id.astype(str))
+    porhacer = muestra[~muestra.id.astype(str).isin(hechas)]
+    if maximo is not None:
+        porhacer = porhacer.head(maximo)
+    saltadas = int(muestra.id.astype(str).isin(hechas).sum())
+    if saltadas:
+        print(f"Se saltan {saltadas} consultas que ya tienen resultado. Se corren {len(porhacer)}.\n")
+
+    def guardar(filas):
+        nuevo = pd.DataFrame(filas)
+        base = viejo
+        if len(base) and len(nuevo):
+            base = base[~base.id.astype(str).isin(nuevo.id.astype(str))]
+        todo = pd.concat([base, nuevo], ignore_index=True)
+        # grupo y nivel según la muestra actual (por si cambió la asignación de grupos)
+        info = completa.set_index("id")
+        todo["grupo"] = todo.id.map(info["grupo"]).fillna(todo["grupo"])
+        todo.sort_values(["grupo", "benchmark", "id"]).to_csv(ruta_csv, index=False)
+        return todo
+
     filas, preparadas = [], set()
-    for _, f in muestra.iterrows():
+    todo = guardar(filas) if len(viejo) else pd.DataFrame()
+    for _, f in porhacer.iterrows():
+        if CUOTA["agotada"]:
+            print("\nSe agotó la cuota diaria del LLM: se detiene aquí. Vuelve a correr el mismo "
+                  "comando mañana y seguirá donde se quedó.")
+            break
         ruta = ruta_base(f)
         if preparar and ruta not in preparadas:
             preparar(ruta)
@@ -265,23 +311,24 @@ def probar(herramienta, generar, grupos=None, preparar=None, ejecutor=None):
                       "sin_respuesta_llm": sin_servicio,
                       "llamadas_llm": uso.llamadas, "tokens_entrada": uso.entrada,
                       "tokens_salida": uso.salida, "segundos": segundos})
+        todo = guardar(filas)
         marca = "ACIERTO" if acierto else ("PENDIENTE" if sin_servicio else "FALLO")
-        print(f"{f['grupo']} {f['benchmark']:6} {f['nivel']:10} {marca:7} {segundos:6.1f} s "
-              f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:160]}")
-    os.makedirs(SALIDA, exist_ok=True)
-    nombre = herramienta.lower().replace(" ", "_")
-    ruta_csv = os.path.join(SALIDA, f"{nombre}.csv")
-    nuevo = pd.DataFrame(filas)
-    if os.path.exists(ruta_csv):  # conservar resultados de otros grupos
-        viejo = pd.read_csv(ruta_csv)
-        viejo = viejo[~viejo.id.astype(str).isin(nuevo.id.astype(str))]
-        nuevo = pd.concat([viejo, nuevo], ignore_index=True)
-    nuevo.sort_values(["grupo", "benchmark"]).to_csv(ruta_csv, index=False)
+        print(f"{f['grupo']} {f['benchmark']:6} {f['id']:12} {marca:9} {segundos:6.1f} s "
+              f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:140]}")
+    if not len(todo):
+        todo = guardar(filas)
     total = pd.DataFrame(filas)
-    validas = total[~total.sin_respuesta_llm]
-    print(f"\n{herramienta}: {int(validas.acierto.sum())} de {len(validas)} aciertos. "
+    if len(total):
+        validas = total[~total.sin_respuesta_llm]
+        print(f"\nEsta vez: {int(validas.acierto.sum())} de {len(validas)} aciertos "
+              f"({int(total.tokens_entrada.sum() + total.tokens_salida.sum())} tokens).")
+    if len(todo):
+        todo = todo[todo.id.astype(str).isin(completa.id.astype(str))]  # solo las de la muestra
+    resueltas = todo[~todo.sin_respuesta_llm.astype(bool)] if len(todo) else todo
+    print(f"{herramienta} en total: {len(resueltas)} de {len(completa)} consultas con resultado, "
+          f"{int(resueltas.acierto.sum()) if len(resueltas) else 0} aciertos. "
           f"Resultados en {os.path.relpath(ruta_csv, RAIZ)}")
-    pendientes = total[total.sin_respuesta_llm]
-    if len(pendientes):
-        print(f"{len(pendientes)} consulta(s) PENDIENTE(S): El LLM no respondió, así que no "
-              f"cuentan como fallo. Vuelve a correr el comando más tarde para completarlas.")
+    pendientes = len(completa) - len(resueltas)
+    if pendientes:
+        print(f"Faltan {pendientes} consultas: vuelve a correr el mismo comando (con --max si "
+              f"quieres limitar cuántas) y seguirá donde se quedó.")
