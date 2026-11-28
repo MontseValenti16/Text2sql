@@ -337,6 +337,12 @@ python -m pip install wrenai wren-langchain langchain langchain-openai duckdb
 python herramientas/probar_wrenai.py --max 20
 ```
 
+Los tokens de **entrada** (el prompt: pregunta, esquema, ejemplos) y de **salida** (lo que
+responde el modelo, incluido su razonamiento) se guardan por separado, porque su precio es
+muy distinto: en Groq, gpt-oss-120b cuesta 0.15 USD por millón de tokens de entrada y 0.60
+de salida (noviembre de 2026). Al final de cada corrida se muestra el costo estimado
+(`PRECIO_ENTRADA` y `PRECIO_SALIDA` se pueden cambiar en `.env`).
+
 Cada script **sigue donde se quedó**: salta las consultas que ya tienen resultado en su
 CSV (las PENDIENTES sí se vuelven a correr) y guarda el CSV después de cada consulta.
 `--max N` limita cuántas consultas nuevas se corren esa vez (con el plan gratuito de Groq,

@@ -233,6 +233,17 @@ def calificar(ruta, sql_generado, sql_correcto, ejecutor=None):
     return obtenido == esperado, ""
 
 
+# Precio de gpt-oss-120b en Groq, en USD por millón de tokens (noviembre de 2026). La salida
+# cuesta 4 veces más que la entrada. Se pueden cambiar en .env.
+PRECIO_ENTRADA = float(os.getenv("PRECIO_ENTRADA", "0.15"))
+PRECIO_SALIDA = float(os.getenv("PRECIO_SALIDA", "0.60"))
+
+
+def costo(entrada, salida):
+    """Costo estimado en USD si se pagara el uso (en el plan gratuito no se paga)."""
+    return (entrada * PRECIO_ENTRADA + salida * PRECIO_SALIDA) / 1e6
+
+
 def agregar_opciones(parser):
     """Opciones comunes de los scripts de prueba."""
     parser.add_argument("--grupos", nargs="*", help="Por ejemplo: G1 G2 (por defecto, todos)")
@@ -314,14 +325,15 @@ def probar(herramienta, generar, grupos=None, preparar=None, ejecutor=None, maxi
         todo = guardar(filas)
         marca = "ACIERTO" if acierto else ("PENDIENTE" if sin_servicio else "FALLO")
         print(f"{f['grupo']} {f['benchmark']:6} {f['id']:12} {marca:9} {segundos:6.1f} s "
-              f"{uso.entrada + uso.salida:6} tokens  {(error or error_cal)[:140]}")
+              f"{uso.entrada:6} entrada + {uso.salida:5} salida  {(error or error_cal)[:120]}")
     if not len(todo):
         todo = guardar(filas)
     total = pd.DataFrame(filas)
     if len(total):
         validas = total[~total.sin_respuesta_llm]
-        print(f"\nEsta vez: {int(validas.acierto.sum())} de {len(validas)} aciertos "
-              f"({int(total.tokens_entrada.sum() + total.tokens_salida.sum())} tokens).")
+        ent, sal = int(total.tokens_entrada.sum()), int(total.tokens_salida.sum())
+        print(f"\nEsta vez: {int(validas.acierto.sum())} de {len(validas)} aciertos. Tokens: "
+              f"{ent} de entrada y {sal} de salida (costo estimado: {costo(ent, sal):.4f} USD).")
     if len(todo):
         todo = todo[todo.id.astype(str).isin(completa.id.astype(str))]  # solo las de la muestra
     resueltas = todo[~todo.sin_respuesta_llm.astype(bool)] if len(todo) else todo
